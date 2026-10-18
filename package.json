@@ -6,10 +6,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node dist/server.js",
-    "dev": "tsx watch src/server.ts",
+    "start": "node init && node dist/server.js",
+    "dev": "node init && tsx watch src/server.ts",
     "clean": "rimraf dist",
-    "build": "npm run clean && tsc -p tsconfig.json",
+    "build": "node init && npm run clean && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint:check": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -44,6 +44,7 @@
     "morgan": "^1.11.0",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
+    "node-fetch": "^3.3.2",
     "nodemailer": "^8.0.2",
     "socket.io": "^4.8.3",
     "stripe": "^20.4.1",
