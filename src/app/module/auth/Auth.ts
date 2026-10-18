@@ -15,8 +15,10 @@ interface IAuth {
   isActive?: boolean;
   verificationCode?: string;
   verificationCodeExpire?: Date;
+  verificationAttempts?: number;
   activationCode?: string;
   activationCodeExpire?: Date;
+  activationAttempts?: number;
 }
 
 interface AuthModel extends Model<IAuth> {
@@ -69,11 +71,19 @@ const AuthSchema = new Schema<IAuth, AuthModel>(
     verificationCodeExpire: {
       type: Date,
     },
+    verificationAttempts: {
+      type: Number,
+      default: 0,
+    },
     activationCode: {
       type: String,
     },
     activationCodeExpire: {
       type: Date,
+    },
+    activationAttempts: {
+      type: Number,
+      default: 0,
     },
   },
   {

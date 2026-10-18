@@ -1,0 +1,12 @@
+node_modules
+dist
+logs
+uploads
+tests
+docs/*.md
+.git
+.github
+.env
+.env.*
+*.md
+.vercel

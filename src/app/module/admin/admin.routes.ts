@@ -7,6 +7,11 @@ import config from "../../../config";
 const router = express.Router();
 
 router
+  .post(
+    "/create-admin",
+    auth(config.auth_level.super_admin),
+    AdminController.createAdmin,
+  )
   .get("/profile", auth(config.auth_level.admin), AdminController.getProfile)
   .patch(
     "/edit-profile",

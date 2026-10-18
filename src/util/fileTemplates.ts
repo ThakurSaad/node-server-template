@@ -141,7 +141,7 @@ export const serviceTemplate = (moduleName: string): string => {
   const moduleNameLowerCase = moduleName.toLowerCase();
 
   return `
-import status from "http-status";
+import status from "./httpStatus";
 import { ${moduleName} } from "./${moduleName}";
 import QueryBuilder from "../../../builder/queryBuilder";
 import ApiError from "../../../error/ApiError";

@@ -5,6 +5,7 @@ const notificationSchema = new Schema<INotification>(
   {
     toId: {
       type: Schema.Types.ObjectId,
+      ref: "User",
       required: true,
     },
     title: {
@@ -24,6 +25,9 @@ const notificationSchema = new Schema<INotification>(
     timestamps: true,
   },
 );
+
+// Hot path: unread notification list per user
+notificationSchema.index({ toId: 1, isRead: 1 });
 
 const Notification = model<INotification>("Notification", notificationSchema);
 

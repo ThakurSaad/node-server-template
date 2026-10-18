@@ -1,7 +1,6 @@
-const { status } = require("http-status");
+import { status } from "../../../util/httpStatus";
 import { SignOptions } from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import cron from "node-cron";
 
 import ApiError from "../../../error/ApiError";
 import config from "../../../config";
@@ -14,7 +13,35 @@ import Admin from "../admin/Admin";
 import validateFields from "../../../util/validateFields";
 import EmailHelpers from "../../../util/emailHelpers";
 import { AuthUserPayload } from "../../../types/auth.types";
-import { logger } from "../../../util/logger";
+
+const MAX_OTP_ATTEMPTS = 5;
+
+const invalidateActivationCode = async (email: string) => {
+  await Auth.updateOne(
+    { email },
+    {
+      $unset: {
+        activationCode: "",
+        activationCodeExpire: "",
+        activationAttempts: "",
+      },
+    },
+  );
+};
+
+const invalidateVerificationCode = async (email: string) => {
+  await Auth.updateOne(
+    { email },
+    {
+      $unset: {
+        isVerified: "",
+        verificationCode: "",
+        verificationCodeExpire: "",
+        verificationAttempts: "",
+      },
+    },
+  );
+};
 
 const registrationAccount = async (payload: {
   role: string;
@@ -51,7 +78,10 @@ const registrationAccount = async (payload: {
     ),
   };
 
-  if (!Object.values(EnumUserRole).includes(role))
+  // Only USER accounts may self-register. Admins are created by a
+  // super admin (POST /admin/create-admin) or the seed script.
+  const selfRegisterableRoles: string[] = [EnumUserRole.USER];
+  if (!selfRegisterableRoles.includes(role))
     throw new ApiError(status.BAD_REQUEST, "Invalid role");
   if (password !== confirmPassword)
     throw new ApiError(
@@ -68,6 +98,7 @@ const registrationAccount = async (payload: {
     if (!user.isActive) {
       user.activationCode = activationCode;
       user.activationCodeExpire = activationCodeExpire;
+      user.activationAttempts = 0;
       await user.save();
 
       EmailHelpers.sendOtpResendEmail(email, data);
@@ -79,19 +110,15 @@ const registrationAccount = async (payload: {
     };
   }
 
-  if (role !== EnumUserRole.ADMIN)
-    EmailHelpers.sendActivationEmail(email, data);
+  EmailHelpers.sendActivationEmail(email, data);
 
   const auth = await Auth.create(authData);
 
-  const userData = {
+  await User.create({
     authId: auth._id,
     name,
     email,
-  };
-
-  if (role === EnumUserRole.ADMIN) await Admin.create(userData);
-  else await User.create(userData);
+  });
 
   return {
     isActive: false,
@@ -120,6 +147,7 @@ const resendActivationCode = async (payload: { email: string }) => {
     {
       activationCode,
       activationCodeExpire,
+      activationAttempts: 0,
     },
   );
 
@@ -139,12 +167,33 @@ const activateAccount = async (payload: {
       status.NOT_FOUND,
       "Activation code not found. Get a new activation code",
     );
-  if (auth.activationCode !== activationCode)
+  if (!auth.activationCodeExpire || auth.activationCodeExpire < new Date())
+    throw new ApiError(
+      status.BAD_REQUEST,
+      "Activation code expired. Get a new activation code",
+    );
+  if ((auth.activationAttempts ?? 0) >= MAX_OTP_ATTEMPTS) {
+    await invalidateActivationCode(email);
+    throw new ApiError(
+      status.TOO_MANY_REQUESTS,
+      "Too many attempts. Get a new activation code",
+    );
+  }
+  if (auth.activationCode !== activationCode) {
+    await Auth.updateOne({ email }, { $inc: { activationAttempts: 1 } });
     throw new ApiError(status.BAD_REQUEST, "Code didn't match!");
+  }
 
   await Auth.updateOne(
     { email: email },
-    { isActive: true },
+    {
+      isActive: true,
+      $unset: {
+        activationCode: "",
+        activationCodeExpire: "",
+        activationAttempts: "",
+      },
+    },
     {
       runValidators: true,
     },
@@ -153,6 +202,7 @@ const activateAccount = async (payload: {
   let result;
   switch (auth.role) {
     case EnumUserRole.ADMIN:
+    case EnumUserRole.SUPER_ADMIN:
       result = await Admin.findOne({ authId: auth._id }).lean();
       break;
     default:
@@ -209,6 +259,7 @@ const loginAccount = async (payload: { email: string; password: string }) => {
   let result;
   switch (auth.role) {
     case EnumUserRole.ADMIN:
+    case EnumUserRole.SUPER_ADMIN:
       result = await Admin.findOne({ authId: auth._id }).populate("authId");
       break;
     default:
@@ -258,6 +309,7 @@ const forgotPass = async (payload: { email: string }) => {
     {
       verificationCode,
       verificationCodeExpire,
+      verificationAttempts: 0,
     },
   );
 
@@ -287,12 +339,29 @@ const forgetPassOtpVerify = async (payload: {
       status.NOT_FOUND,
       "No verification code. Get a new verification code",
     );
-  if (auth.verificationCode !== code)
+  if (!auth.verificationCodeExpire || auth.verificationCodeExpire < new Date())
+    throw new ApiError(
+      status.BAD_REQUEST,
+      "Verification code expired. Get a new verification code",
+    );
+  if ((auth.verificationAttempts ?? 0) >= MAX_OTP_ATTEMPTS) {
+    await invalidateVerificationCode(email);
+    throw new ApiError(
+      status.TOO_MANY_REQUESTS,
+      "Too many attempts. Get a new verification code",
+    );
+  }
+  if (auth.verificationCode !== code) {
+    await Auth.updateOne({ email }, { $inc: { verificationAttempts: 1 } });
     throw new ApiError(status.BAD_REQUEST, "Invalid verification code!");
+  }
 
   await Auth.updateOne(
     { email: auth.email },
-    { isVerified: true, verificationCode: null },
+    {
+      isVerified: true,
+      $unset: { verificationCode: "", verificationAttempts: "" },
+    },
   );
 };
 
@@ -321,9 +390,59 @@ const resetPassword = async (payload: {
         isVerified: "",
         verificationCode: "",
         verificationCodeExpire: "",
+        verificationAttempts: "",
       },
     },
   );
+};
+
+const refreshToken = async (token: string) => {
+  if (!token)
+    throw new ApiError(status.UNAUTHORIZED, "Refresh token is required");
+
+  let verified: AuthUserPayload;
+  try {
+    verified = jwtHelpers.verifyToken<AuthUserPayload>(
+      token,
+      config.jwt.refresh_secret,
+    );
+  } catch {
+    throw new ApiError(status.UNAUTHORIZED, "Invalid refresh token");
+  }
+
+  const auth = await Auth.findById(verified.authId);
+  if (!auth) throw new ApiError(status.UNAUTHORIZED, "Account does not exist");
+  if (!auth.isActive)
+    throw new ApiError(status.FORBIDDEN, "Account is not activated");
+  if (auth.isBlocked)
+    throw new ApiError(status.FORBIDDEN, "You are blocked. Contact support");
+
+  let result;
+  switch (auth.role) {
+    case EnumUserRole.ADMIN:
+    case EnumUserRole.SUPER_ADMIN:
+      result = await Admin.findOne({ authId: auth._id }).lean();
+      break;
+    default:
+      result = await User.findOne({ authId: auth._id }).lean();
+  }
+
+  if (!result) throw new ApiError(status.NOT_FOUND, "Account detail not found");
+
+  const tokenPayload = {
+    authId: String(auth._id),
+    userId: String(result._id),
+    email: auth.email,
+    role: auth.role,
+  };
+
+  const accessToken = jwtHelpers.createToken(
+    tokenPayload,
+    config.jwt.secret,
+    config.jwt.expires_in as SignOptions["expiresIn"],
+  );
+
+  return { accessToken };
 };
 
 const changePassword = async (
@@ -356,64 +475,14 @@ const changePassword = async (
     throw new ApiError(status.BAD_REQUEST, "Old password is incorrect");
   }
 
-  await Auth.updateOne({ email }, { password: newPassword });
-};
+  const hashedPassword = await hashPass(newPassword);
 
-const updateFieldsWithCron = async (check: "activation" | "verification") => {
-  const now = new Date();
-  let result;
-
-  if (check === "activation") {
-    result = await Auth.updateMany(
-      {
-        activationCodeExpire: { $lte: now },
-      },
-      {
-        $unset: {
-          activationCode: "",
-          activationCodeExpire: "",
-        },
-      },
-    );
-  }
-
-  if (check === "verification") {
-    result = await Auth.updateMany(
-      {
-        verificationCodeExpire: { $lte: now },
-      },
-      {
-        $unset: {
-          isVerified: "",
-          verificationCode: "",
-          verificationCodeExpire: "",
-        },
-      },
-    );
-  }
-
-  if (result && result.modifiedCount > 0)
-    logger.info(
-      `Removed ${result.modifiedCount} expired ${
-        check === "activation" ? "activation" : "verification"
-      } code`,
-    );
+  await Auth.updateOne({ email }, { password: hashedPassword });
 };
 
 const hashPass = async (newPassword: string) => {
   return await bcrypt.hash(newPassword, Number(config.bcrypt_salt_rounds));
 };
-
-// Unset activationCode activationCodeExpire field for expired activation code
-// Unset isVerified, verificationCode, verificationCodeExpire field for expired verification code
-cron.schedule("* * * * *", async () => {
-  try {
-    updateFieldsWithCron("activation");
-    updateFieldsWithCron("verification");
-  } catch (error) {
-    logger.error("Error removing expired code:", error);
-  }
-});
 
 const AuthService = {
   registrationAccount,
@@ -424,6 +493,7 @@ const AuthService = {
   activateAccount,
   forgetPassOtpVerify,
   resendActivationCode,
+  refreshToken,
 };
 
 export { AuthService };

@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-const httpStatus = require("http-status");
+import { status as httpStatus } from "../../util/httpStatus";
 import config from "../../config";
 import ApiError from "../../error/ApiError";
 import { jwtHelpers } from "../../util/jwtHelpers";
@@ -33,6 +33,15 @@ const auth =
       const isExist = await Auth.findById(verifyUser.authId);
       if (!isExist) {
         throw new ApiError(httpStatus.UNAUTHORIZED, "You are not authorized");
+      }
+      if (isExist.isBlocked) {
+        throw new ApiError(
+          httpStatus.FORBIDDEN,
+          "You are blocked. Contact support",
+        );
+      }
+      if (!isExist.isActive) {
+        throw new ApiError(httpStatus.FORBIDDEN, "Account is not activated");
       }
 
       if (roles.length && !roles.includes(verifyUser.role)) {

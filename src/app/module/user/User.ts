@@ -33,20 +33,31 @@ const UserSchema = new Schema<IUser>(
       default: false,
     },
     locationCoordinates: {
-      type: {
-        type: String,
-        enum: ["Point"],
-        default: "Point",
-      },
-      coordinates: {
-        type: [Number],
-      },
+      // default: undefined keeps the field absent until a location is set —
+      // a bare { type: "Point" } without coordinates breaks the 2dsphere index
+      type: new Schema(
+        {
+          type: {
+            type: String,
+            enum: ["Point"],
+            default: "Point",
+          },
+          coordinates: {
+            type: [Number],
+          },
+        },
+        { _id: false },
+      ),
+      default: undefined,
     },
   },
   {
     timestamps: true,
   },
 );
+
+// Geospatial queries on live location updates
+UserSchema.index({ locationCoordinates: "2dsphere" });
 
 const User = model<IUser>("User", UserSchema);
 

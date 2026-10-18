@@ -1,0 +1,236 @@
+openapi: 3.0.3
+info:
+  title: Server Setup Template API
+  description: |
+    Express 5 + TypeScript + MongoDB backend template.
+    Interactive documentation for the authentication module and system endpoints.
+    Domain modules (user, admin, chat, review, feedback, notification, manage)
+    follow the same envelope conventions.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8001
+    description: Local development
+
+tags:
+  - name: System
+  - name: Auth
+  - name: Admin
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Health check (DB connectivity + uptime)
+      responses:
+        "200":
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  uptime: { type: number, example: 123.45 }
+                  db: { type: string, example: up }
+        "503":
+          description: Database unreachable
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new USER account (sends activation OTP email)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, role, password, confirmPassword]
+              properties:
+                name: { type: string, example: Jane Doe }
+                email: { type: string, format: email }
+                role:
+                  {
+                    type: string,
+                    enum: [USER],
+                    description: Only USER may self-register,
+                  }
+                password: { type: string, minLength: 8 }
+                confirmPassword: { type: string }
+      responses:
+        "200":
+          { description: Account created — check email for the activation code }
+        "400": { description: Validation error / privileged role rejected }
+
+  /auth/activate-account:
+    post:
+      tags: [Auth]
+      summary: Verify the emailed OTP and activate the account
+      description: Codes expire after 3 minutes and are invalidated after 5 wrong attempts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, activationCode]
+              properties:
+                email: { type: string, format: email }
+                activationCode: { type: string, example: "123456" }
+      responses:
+        "201": { description: Activated — returns access + refresh tokens }
+        "400": { description: Wrong or expired code }
+        "429": { description: Too many attempts }
+
+  /auth/activation-code-resend:
+    post:
+      tags: [Auth]
+      summary: Re-issue the activation OTP
+      requestBody:
+        $ref: "#/components/requestBodies/EmailOnly"
+      responses:
+        "200": { description: New code sent }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: Returns accessToken + refreshToken (refresh token also set as httpOnly cookie)
+        "400": { description: Wrong password / account not activated }
+        "403": { description: Account blocked }
+        "429": { description: Rate limited }
+
+  /auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a fresh access token
+      description: Reads the token from the httpOnly cookie or the request body.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200": { description: New access token issued }
+        "401": { description: Invalid or expired refresh token }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Send a password-reset OTP
+      requestBody:
+        $ref: "#/components/requestBodies/EmailOnly"
+      responses:
+        "200": { description: Reset code sent }
+
+  /auth/forget-pass-otp-verify:
+    post:
+      tags: [Auth]
+      summary: Verify the password-reset OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string }
+      responses:
+        "200": { description: Code verified — reset allowed }
+        "400": { description: Wrong or expired code }
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set a new password after OTP verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, newPassword, confirmPassword]
+              properties:
+                email: { type: string, format: email }
+                newPassword: { type: string, minLength: 8 }
+                confirmPassword: { type: string }
+      responses:
+        "200": { description: Password reset }
+        "403": { description: OTP verification not completed }
+
+  /auth/change-password:
+    patch:
+      tags: [Auth]
+      summary: Change password (authenticated)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword, confirmPassword]
+              properties:
+                oldPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+                confirmPassword: { type: string }
+      responses:
+        "200": { description: Password changed }
+        "400": { description: Old password incorrect }
+
+  /admin/create-admin:
+    post:
+      tags: [Admin]
+      summary: Create a pre-activated ADMIN account (SUPER_ADMIN only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        "201": { description: Admin created }
+        "403": { description: Requires SUPER_ADMIN role }
+        "409": { description: Email already registered }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  requestBodies:
+    EmailOnly:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email]
+            properties:
+              email: { type: string, format: email }

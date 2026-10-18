@@ -1,6 +1,6 @@
-const { status } = require("http-status");
+import { status } from "../../../util/httpStatus";
 
-// import status from "http-status";
+// import status from "../../../util/httpStatus";
 import Auth from "../auth/Auth";
 import User from "./User";
 import deleteFalsyField from "../../../util/deleteFalsyField";

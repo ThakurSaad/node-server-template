@@ -1,4 +1,4 @@
-const { status } = require("http-status");
+import { status } from "../../../util/httpStatus";
 import ApiError from "../../../error/ApiError";
 import QueryBuilder, { QueryParams } from "../../../builder/queryBuilder";
 import postNotification from "../../../util/postNotification";

@@ -2,11 +2,13 @@ import { NextFunction, Request, Response } from "express";
 import mongoose, { Error as mongooseError } from "mongoose";
 import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 import { MulterError } from "multer";
+import { ZodError } from "zod";
 import config from "../../config";
 import handleValidationError from "../../error/handleValidationError";
 import handleCastError from "../../error/handleCastError";
 import ApiError from "../../error/ApiError";
 import handleMulterError from "../../error/handleMulterError";
+import handleZodError from "../../error/handleZodError";
 import createErrorMessage from "../../util/createErrorMessage";
 import { errorLogger } from "../../util/logger";
 
@@ -50,7 +52,7 @@ const globalErrorHandler = (
   error: unknown,
   req: Request,
   res: Response,
-  next: NextFunction,
+  _next: NextFunction,
 ): void => {
   const logError = config.env === "development" ? console.log : console.error;
   logError("❌ globalErrorHandler", error);
@@ -142,6 +144,7 @@ const globalErrorHandler = (
       ),
     }),
     MulterError: () => handleMulterError(error as MulterError),
+    ZodError: () => handleZodError(error as ZodError),
   };
 
   // Determine the specific error handler
@@ -163,6 +166,8 @@ const globalErrorHandler = (
     errorType = errorHandlers.mongooseError;
   } else if (error instanceof MulterError) {
     errorType = errorHandlers.MulterError;
+  } else if (error instanceof ZodError) {
+    errorType = errorHandlers.ZodError;
   }
 
   if (errorType) {

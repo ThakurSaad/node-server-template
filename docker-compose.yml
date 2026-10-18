@@ -1,0 +1,39 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8001:8001"
+    env_file: .env
+    environment:
+      # Inside the compose network the DB host is the service name
+      MONGO_URL: mongodb://mongo:27017/templateDB
+      BASE_URL: 0.0.0.0
+      PORT: 8001
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - uploads:/app/uploads
+      - logs:/app/logs
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
+  uploads:
+  logs:

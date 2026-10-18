@@ -37,11 +37,15 @@ class QueryBuilder<T> {
   search(searchableFields: string[]): this {
     const searchTerm = this.query?.searchTerm;
 
-    if (searchTerm) {
+    if (searchTerm && typeof searchTerm === "string") {
+      // Escape regex metacharacters so user input can't inject regex
+      // patterns (ReDoS) into the $regex query
+      const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
       this.modelQuery = this.modelQuery
         .find({
           $or: searchableFields.map((field) => ({
-            [field]: { $regex: searchTerm, $options: "i" },
+            [field]: { $regex: escapedTerm, $options: "i" },
           })),
         })
         .collation({ locale: "en", strength: 2 });
@@ -58,7 +62,16 @@ class QueryBuilder<T> {
     const excludeFields = ["searchTerm", "sort", "limit", "page", "fields"];
     excludeFields.forEach((el) => delete queryObj[el]);
 
-    this.modelQuery = this.modelQuery.find(queryObj);
+    // Only allow plain string values on safe keys. Nested objects/arrays are
+    // dropped entirely — with the extended query parser, ?age[$ne]=0 arrives
+    // as { age: { $ne: "0" } }, i.e. a NoSQL operator injection.
+    const sanitized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(queryObj)) {
+      if (key.startsWith("$") || key.includes(".")) continue;
+      if (typeof value === "string") sanitized[key] = value;
+    }
+
+    this.modelQuery = this.modelQuery.find(sanitized);
 
     return this;
   }

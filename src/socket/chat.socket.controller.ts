@@ -1,4 +1,4 @@
-const { default: status } = require("http-status");
+import { status } from "../util/httpStatus";
 
 import emitResult from "./emitResult";
 import Chat from "../app/module/chat/Chat";
@@ -29,18 +29,15 @@ const sendMessage = socketCatchAsync(
     }
 
     const newMessage = await Message.create({
+      chatId,
       sender: userId,
       receiver: receiverId,
       message,
     });
 
-    // notify both user and driver upon new message
+    // notify both participants upon new message
     postNotification("New message", message, receiverId);
     postNotification("New message", message, userId);
-
-    await Promise.all([
-      Chat.updateOne({ _id: chatId }, { $push: { messages: newMessage._id } }),
-    ]);
 
     // Broadcast to user
     io.to(userId).emit(
