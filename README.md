@@ -39,8 +39,7 @@ A production-oriented backend starter template built with **Express 5**, **TypeS
 - 🪵 **Structured logging** — Winston with daily-rotated log files, morgan HTTP logs, and per-request `X-Request-Id` correlation
 - ⚡ **Module generator** — scaffold a new domain module (model, controller, service, routes) with one command
 - 🛡️ **Centralized error handling** — a single global handler normalizes Mongoose, Multer, JWT, Zod, and custom `ApiError` failures into one predictable JSON shape
-- 🧪 **Tests & CI** — Vitest + Supertest + in-memory MongoDB suites for the auth flows and query builder; GitHub Actions pipeline (typecheck → lint → format → test → build)
-- 🐳 **Containerized** — multi-stage `Dockerfile` and `docker-compose.yml` with MongoDB and health checks
+- 🧪 **Tests** — Vitest + Supertest + in-memory MongoDB suites for the auth flows and query builder
 - 📖 **API docs** — Swagger UI served at `/docs` (non-production) from `docs/openapi.yaml`; `/health` endpoint for load balancers
 
 ## Tech Stack
@@ -61,7 +60,7 @@ A production-oriented backend starter template built with **Express 5**, **TypeS
 | Payments       | Stripe SDK (pre-wired configuration)                               |
 | Logging        | Winston + winston-daily-rotate-file, morgan                        |
 | Testing        | Vitest, Supertest, mongodb-memory-server                           |
-| Dev experience | tsx (hot reload), rimraf, GitHub Actions CI, Docker                |
+| Dev experience | tsx (hot reload), rimraf                                           |
 
 ## Architecture
 
@@ -160,8 +159,6 @@ Key structural decisions:
 │   └── server.ts                 # Entry point: DB connect, listen, jobs, graceful shutdown
 ├── tests/                        # Vitest suites (auth flows, QueryBuilder) + helpers
 ├── docs/                         # Extended technical documentation + openapi.yaml
-├── .github/workflows/ci.yml     # CI: typecheck → lint → format → test → build
-├── Dockerfile / docker-compose.yml
 ├── .env.example                  # Template for required environment variables
 ├── eslint.config.mjs             # Flat ESLint config (TS + Prettier)
 └── tsconfig.json
@@ -172,7 +169,7 @@ Key structural decisions:
 ### Prerequisites
 
 - **Node.js** ≥ 20
-- **MongoDB** — a local instance or a MongoDB Atlas cluster (or use Docker, below)
+- **MongoDB** — a local instance or a MongoDB Atlas cluster
 - An **SMTP account** (e.g., Gmail app password) for OTP emails
 
 ### Installation
@@ -196,12 +193,6 @@ npm run dev
 ```
 
 The API is now available at `http://<BASE_URL>:<PORT>` (default `http://0.0.0.0:8001`). `GET /health` reports DB connectivity and uptime; interactive API docs are at `/docs` (non-production).
-
-### Docker
-
-```bash
-docker compose up   # API + MongoDB with health checks
-```
 
 ### Production build
 
@@ -564,8 +555,6 @@ This generates `Booking.ts` (model), `booking.controller.ts`, `booking.service.t
 - **ESLint flat config** with `typescript-eslint` recommended rules
 - **Prettier** enforced via `prettier:check`, with `lint-staged` configured for pre-commit fixing
 - **Vitest + Supertest + mongodb-memory-server** — the full auth lifecycle (register → activate → login → refresh → change password), OTP brute-force lockout, and QueryBuilder injection-safety are covered by tests that run against a real in-memory MongoDB
-- **GitHub Actions CI** (`.github/workflows/ci.yml`) — typecheck → lint → format check → tests → build on every push/PR, across Node 20 and 22
-
 ## Further Documentation
 
 Extended documentation lives in [`docs/`](./docs):
