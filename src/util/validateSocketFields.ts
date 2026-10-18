@@ -1,4 +1,4 @@
-const { default: status } = require("http-status");
+import { status } from "./httpStatus";
 import { Socket } from "socket.io";
 import emitError from "../socket/emitError";
 
@@ -10,20 +10,21 @@ import emitError from "../socket/emitError";
  * @param {Array} requiredFields - Array of field names that are required
  * @param {Object} socket - Socket.io socket instance for error emission
  */
-const validateSocketFields = (
+const validateSocketFields = <T extends object>(
   socket: Socket,
-  payload: Record<string, unknown>,
-  requiredFields: string[],
+  payload: T,
+  requiredFields: (keyof T & string)[],
 ): void => {
   if (!payload) {
     emitError(socket, status.BAD_REQUEST, "Request payload is required");
   }
 
   for (const field of requiredFields) {
+    const value = (payload as Record<string, unknown>)[field];
     if (
-      payload[field] === undefined ||
-      payload[field] === null ||
-      (typeof payload[field] === "string" && payload[field].trim() === "")
+      value === undefined ||
+      value === null ||
+      (typeof value === "string" && value.trim() === "")
     ) {
       emitError(socket, status.BAD_REQUEST, `${field} is required`);
     }

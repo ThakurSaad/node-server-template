@@ -1,4 +1,4 @@
-const { default: status } = require("http-status");
+import { status } from "../../../util/httpStatus";
 import { Request, Response } from "express";
 import { ChatService } from "./chat.service";
 import sendResponse from "../../../util/sendResponse";

@@ -6,14 +6,25 @@ import { EnumSocketEvent } from "../util/enum";
 import validateSocketFields from "../util/validateSocketFields";
 import { Server, Socket } from "socket.io";
 
-const { default: status } = require("http-status");
+import { status } from "../util/httpStatus";
+
+interface ValidateUserPayload {
+  userId: string;
+}
+
+interface UpdateOnlineStatusPayload {
+  userId: string;
+  isOnline: boolean;
+}
+
+interface UpdateLocationPayload {
+  userId: string;
+  lat: number | string;
+  long: number | string;
+}
 
 const validateUser = socketCatchAsync(
-  async (
-    socket: Socket,
-    io: Server,
-    payload: Record<string, unknown>,
-  ): Promise<any> => {
+  async (socket: Socket, io: Server, payload: ValidateUserPayload) => {
     if (!payload.userId) {
       emitError(
         socket,
@@ -36,11 +47,7 @@ const validateUser = socketCatchAsync(
 );
 
 const updateOnlineStatus = socketCatchAsync(
-  async (
-    socket: Socket,
-    io: Server,
-    payload: Record<string, unknown>,
-  ): Promise<any> => {
+  async (socket: Socket, io: Server, payload: UpdateOnlineStatusPayload) => {
     validateSocketFields(socket, payload, ["userId", "isOnline"]);
     const { userId, isOnline } = payload;
 
@@ -49,6 +56,10 @@ const updateOnlineStatus = socketCatchAsync(
       { isOnline },
       { returnDocument: "after" },
     );
+
+    if (!updatedUser) {
+      return emitError(socket, status.NOT_FOUND, "User not found");
+    }
 
     socket.emit(
       EnumSocketEvent.ONLINE_STATUS,
@@ -63,11 +74,7 @@ const updateOnlineStatus = socketCatchAsync(
 );
 
 const updateLocation = socketCatchAsync(
-  async (
-    socket: Socket,
-    io: Server,
-    payload: Record<string, unknown>,
-  ): Promise<any> => {
+  async (socket: Socket, io: Server, payload: UpdateLocationPayload) => {
     validateSocketFields(socket, payload, ["userId", "lat", "long"]);
 
     const { userId, lat, long } = payload;
@@ -77,6 +84,10 @@ const updateLocation = socketCatchAsync(
       { locationCoordinates: { coordinates: [Number(long), Number(lat)] } },
       { returnDocument: "after", runValidators: true },
     );
+
+    if (!updatedUser) {
+      return emitError(socket, status.NOT_FOUND, "User not found");
+    }
 
     // Broadcast to everyone (consider throttling in production)
     io.emit(

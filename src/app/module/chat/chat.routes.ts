@@ -1,7 +1,7 @@
 import express from "express";
 import auth from "../../middleware/auth";
 import config from "../../../config";
-import {ChatController} from "./chat.controller";
+import { ChatController } from "./chat.controller";
 
 const router = express.Router();
 

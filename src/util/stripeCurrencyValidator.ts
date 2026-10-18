@@ -1,4 +1,4 @@
-const { default: status } = require("http-status");
+import { status } from "./httpStatus";
 import ApiError from "../error/ApiError";
 
 // List of Stripe-supported currencies

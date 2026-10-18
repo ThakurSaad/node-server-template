@@ -1,4 +1,4 @@
-const { default: status } = require("http-status");
+import { status } from "../../../util/httpStatus";
 import sendResponse from "../../../util/sendResponse";
 import { AdminService } from "./admin.service";
 import catchAsync from "../../../util/catchAsync";
@@ -37,7 +37,18 @@ const deleteMyAccount = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const createAdmin = catchAsync(async (req: Request, res: Response) => {
+  const result = await AdminService.createAdmin(req.body);
+  sendResponse(res, {
+    statusCode: 201,
+    success: true,
+    message: "Admin created successfully",
+    data: result,
+  });
+});
+
 const AdminController = {
+  createAdmin,
   updateProfile,
   getProfile,
   deleteMyAccount,

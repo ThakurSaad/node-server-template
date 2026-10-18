@@ -1,11 +1,45 @@
-const { default: status } = require("http-status");
+import { status } from "../../../util/httpStatus";
 import ApiError from "../../../error/ApiError";
 import Auth from "../auth/Auth";
 import Admin from "./Admin";
 import unlinkFile from "../../../util/unlinkFile";
 import deleteFalsyField from "../../../util/deleteFalsyField";
+import validateFields from "../../../util/validateFields";
+import { EnumUserRole } from "../../../util/enum";
 import { Request } from "express";
 import { AuthUserPayload } from "../../../types/auth.types";
+
+const createAdmin = async (payload: {
+  name: string;
+  email: string;
+  password: string;
+}) => {
+  const { name, email, password } = payload;
+
+  validateFields(payload, ["name", "email", "password"]);
+
+  const existing = await Auth.findOne({ email });
+  if (existing)
+    throw new ApiError(status.CONFLICT, "An account with this email exists");
+
+  // Auth.create runs the pre("save") hook, so the password is hashed.
+  // Admin accounts are created pre-activated — no OTP flow.
+  const auth = await Auth.create({
+    name,
+    email,
+    password,
+    role: EnumUserRole.ADMIN,
+    isActive: true,
+  });
+
+  const admin = await Admin.create({
+    authId: auth._id,
+    name,
+    email,
+  });
+
+  return { _id: admin._id, name, email, role: auth.role };
+};
 
 const updateProfile = async (req: Request) => {
   const { body: data } = req;
@@ -104,6 +138,7 @@ const deleteMyAccount = async (payload: {
 };
 
 const AdminService = {
+  createAdmin,
   updateProfile,
   getProfile,
   deleteMyAccount,

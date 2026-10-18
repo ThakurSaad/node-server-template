@@ -1,0 +1,1515 @@
+{
+  "info": {
+    "_postman_id": "0fb27d12-e493-46a9-ba71-c156e6ee4f0c",
+    "name": "Server Setup Template API",
+    "description": "Complete collection for the Express 5 + TypeScript + MongoDB backend template.\n\n## Quick start\n\n1. Set the `baseUrl` variable if your server is not on `http://localhost:8001`.\n2. Run **Auth → Register**, grab the 6-digit OTP from the activation email (or the database in development).\n3. Run **Auth → Activate Account** — the test script stores `accessToken` and `refreshToken` automatically.\n4. Every protected request inherits the bearer token from the collection. When the access token expires (15 min), run **Auth → Refresh Token**.\n\nOTP codes expire after 3 minutes and are invalidated after 5 wrong attempts. Rate limits: login 10/h, OTP send 3/15min, OTP verify 5/15min.\n\nFull written reference: `docs/api/` in the repository.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8001",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userEmail",
+      "value": "jane@example.com",
+      "type": "string"
+    },
+    {
+      "key": "userPassword",
+      "value": "hunter2-secure",
+      "type": "string"
+    },
+    {
+      "key": "chatId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "receiverId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "reviewId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "feedbackId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "contentId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "description": "Liveness and health probes. No authentication required.",
+      "item": [
+        {
+          "name": "Welcome",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Returns a welcome message. Useful as a liveness probe."
+          },
+          "response": []
+        },
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Service is healthy\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().db).to.eql(\"up\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Reports DB connectivity and process uptime. Returns 503 when the database is unreachable."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Registration, OTP activation, login, token refresh, and password management.\n\nTokens are captured into collection variables automatically by the test scripts on Login, Activate Account, and Refresh Token.",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"{{userEmail}}\",\n  \"role\": \"USER\",\n  \"password\": \"{{userPassword}}\",\n  \"confirmPassword\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Creates an inactive USER account and emails a 6-digit activation code (3-minute expiry). Only role USER may self-register — ADMIN/SUPER_ADMIN are rejected with 400."
+          },
+          "response": []
+        },
+        {
+          "name": "Activate Account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.accessToken) {",
+                  "  pm.collectionVariables.set(\"accessToken\", json.data.accessToken);",
+                  "  pm.collectionVariables.set(\"refreshToken\", json.data.refreshToken);",
+                  "  console.log(\"Tokens saved to collection variables\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"activationCode\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/activate-account",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "activate-account"]
+            },
+            "description": "Verifies the emailed OTP and activates the account. Replace 123456 with the real code. On success the returned tokens are stored automatically.\n\nRate limit: 5/15min. Codes are invalidated after 5 wrong attempts."
+          },
+          "response": []
+        },
+        {
+          "name": "Resend Activation Code",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/activation-code-resend",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "activation-code-resend"]
+            },
+            "description": "Re-issues the activation OTP and resets the attempt counter. Rate limit: 3/15min."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.accessToken) {",
+                  "  pm.collectionVariables.set(\"accessToken\", json.data.accessToken);",
+                  "  pm.collectionVariables.set(\"refreshToken\", json.data.refreshToken);",
+                  "  console.log(\"Tokens saved to collection variables\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticates and returns an access token (15 min) + refresh token (30 days). Tokens are stored automatically. Rate limit: 10/hour."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.accessToken) {",
+                  "  pm.collectionVariables.set(\"accessToken\", json.data.accessToken);",
+                  "  console.log(\"Access token refreshed\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh-token"]
+            },
+            "description": "Exchanges the refresh token for a fresh access token (also accepts the httpOnly cookie set at login). The new access token is stored automatically. Rate limit: 5/15min."
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forgot-password"]
+            },
+            "description": "Emails a 6-digit password-reset code. Rate limit: 3/15min."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Reset Code",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forget-pass-otp-verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forget-pass-otp-verify"]
+            },
+            "description": "Verifies the reset OTP and unlocks Reset Password for this account. Rate limit: 5/15min."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"newPassword\": \"new-password-456\",\n  \"confirmPassword\": \"new-password-456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "reset-password"]
+            },
+            "description": "Sets a new password. Requires a successful Verify Reset Code call first (403 otherwise). Rate limit: 5/15min."
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"{{userPassword}}\",\n  \"newPassword\": \"new-password-456\",\n  \"confirmPassword\": \"new-password-456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "change-password"]
+            },
+            "description": "Changes the authenticated account's password after verifying the old one. Uses the collection bearer token."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Profile — User",
+      "description": "Profile management for the authenticated USER.",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "profile"]
+            },
+            "description": "Returns the caller's profile with the linked auth record populated."
+          },
+          "response": []
+        },
+        {
+          "name": "Edit Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Jane D.",
+                  "type": "text"
+                },
+                {
+                  "key": "phoneNumber",
+                  "value": "+8801700000000",
+                  "type": "text"
+                },
+                {
+                  "key": "address",
+                  "value": "Dhaka, Bangladesh",
+                  "type": "text"
+                },
+                {
+                  "key": "profile_image",
+                  "type": "file",
+                  "src": [],
+                  "description": "JPEG/PNG/WebP, max 5 MB"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user/edit-profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "edit-profile"]
+            },
+            "description": "Partial update. All fields optional; profile_image accepts JPEG/PNG/WebP up to 5 MB and replaces the previous image."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user/delete-account",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "delete-account"]
+            },
+            "description": "Permanently deletes the account after re-confirming the password. Cannot be undone."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Profile — Admin",
+      "description": "Admin profile management plus SUPER_ADMIN-only admin creation. Requires an ADMIN or SUPER_ADMIN token.",
+      "item": [
+        {
+          "name": "Create Admin (SUPER_ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ops Admin\",\n  \"email\": \"ops@example.com\",\n  \"password\": \"a-strong-password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/create-admin",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "create-admin"]
+            },
+            "description": "Creates a pre-activated ADMIN account (no OTP flow). Requires a SUPER_ADMIN token — seed one with `npm run seed:admin`."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "profile"]
+            },
+            "description": "Returns the admin's profile with the linked auth record populated."
+          },
+          "response": []
+        },
+        {
+          "name": "Edit Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Ops Admin",
+                  "type": "text"
+                },
+                {
+                  "key": "profile_image",
+                  "type": "file",
+                  "src": [],
+                  "description": "JPEG/PNG/WebP, max 5 MB"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/edit-profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "edit-profile"]
+            },
+            "description": "Partial update of the admin profile."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ops@example.com\",\n  \"password\": \"a-strong-password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/delete-account",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "delete-account"]
+            },
+            "description": "Permanently deletes the admin account after re-confirming the password."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "description": "1-to-1 conversations. Real-time delivery uses Socket.IO on the same port — connect with `{ auth: { token } }`. See docs/api/chat.md.",
+      "item": [
+        {
+          "name": "Start Chat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?._id) {",
+                  "  pm.collectionVariables.set(\"chatId\", json.data._id);",
+                  "  console.log(\"chatId saved:\", json.data._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverId\": \"{{receiverId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/post-chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "post-chat"]
+            },
+            "description": "Creates (or returns the existing) conversation with another user. The chatId is saved automatically."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Chat Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/get-chat-messages?chatId={{chatId}}&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "get-chat-messages"],
+              "query": [
+                {
+                  "key": "chatId",
+                  "value": "{{chatId}}"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Paginated message history for one chat, newest first, with participants populated."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Chats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/get-all-chats",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "get-all-chats"]
+            },
+            "description": "All conversations of the caller, each with an unRead message count."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Messages As Seen",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chatId\": \"{{chatId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/update-message-as-seen",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "update-message-as-seen"]
+            },
+            "description": "Marks all unread messages addressed to the caller in this chat as read."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "In-app notifications. Users see their own; admins operate on the shared admin feed.",
+      "item": [
+        {
+          "name": "Get Notification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notification/get-notification?notificationId={{notificationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["notification", "get-notification"],
+              "query": [
+                {
+                  "key": "notificationId",
+                  "value": "{{notificationId}}"
+                }
+              ]
+            },
+            "description": "Single notification by id (admins get the latest admin-feed entry and may omit the id)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notification/get-all-notifications?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["notification", "get-all-notifications"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "isRead",
+                  "value": "false",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-createdAt",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Paginated notification list. Enable the isRead/sort params to filter."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Read / Unread",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isRead\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notification/update-as-mark-unread",
+              "host": ["{{baseUrl}}"],
+              "path": ["notification", "update-as-mark-unread"]
+            },
+            "description": "Bulk-sets isRead on all of the caller's notifications. Returns 400 if nothing changed."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notificationId\": \"{{notificationId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notification/delete-notification",
+              "host": ["{{baseUrl}}"],
+              "path": ["notification", "delete-notification"]
+            },
+            "description": "Deletes a single notification by id."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "description": "Review CRUD. Users see their own reviews; admins see all.",
+      "item": [
+        {
+          "name": "Post Review (stub)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"review\": \"Excellent service, would recommend!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/review/post-review",
+              "host": ["{{baseUrl}}"],
+              "path": ["review", "post-review"]
+            },
+            "description": "⚠️ Template stub — the service body is intentionally empty and persists nothing. Implement your creation rules in review.service.ts."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/review/get-all-reviews?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["review", "get-all-reviews"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "-createdAt",
+                  "disabled": true
+                },
+                {
+                  "key": "rating",
+                  "value": "5",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Paginated list with the author populated. Users get their own reviews; admins get all."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Review",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/review/get-review?reviewId={{reviewId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["review", "get-review"],
+              "query": [
+                {
+                  "key": "reviewId",
+                  "value": "{{reviewId}}"
+                }
+              ]
+            },
+            "description": "Single review by id."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Review",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewId\": \"{{reviewId}}\",\n  \"rating\": 4,\n  \"review\": \"Updated review text\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/review/update-review",
+              "host": ["{{baseUrl}}"],
+              "path": ["review", "update-review"]
+            },
+            "description": "Updates rating (1–5) and/or review text; omitted fields are unchanged."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Review",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/review/delete-review?reviewId={{reviewId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["review", "delete-review"],
+              "query": [
+                {
+                  "key": "reviewId",
+                  "value": "{{reviewId}}"
+                }
+              ]
+            },
+            "description": "Deletes a review by id (query parameter)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Feedback",
+      "description": "Feedback submission and admin replies.",
+      "item": [
+        {
+          "name": "Post Feedback",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?._id) {",
+                  "  pm.collectionVariables.set(\"feedbackId\", json.data._id);",
+                  "  console.log(\"feedbackId saved:\", json.data._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"feedback\": \"Love the app — dark mode would be great!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/feedback/post-feedback",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedback", "post-feedback"]
+            },
+            "description": "Creates feedback attributed to the caller (name/email resolved from the profile). The feedbackId is saved automatically."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Feedback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/feedback/get-feedback?feedbackId={{feedbackId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedback", "get-feedback"],
+              "query": [
+                {
+                  "key": "feedbackId",
+                  "value": "{{feedbackId}}"
+                }
+              ]
+            },
+            "description": "Single feedback by id."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Feedbacks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/feedback/get-all-feedbacks?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedback", "get-all-feedbacks"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Paginated list — the caller's own feedback for users, all feedback for admins."
+          },
+          "response": []
+        },
+        {
+          "name": "Reply To Feedback (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"feedbackId\": \"{{feedbackId}}\",\n  \"reply\": \"Thanks! Dark mode ships next release.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/feedback/update-feedback-with-reply",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedback", "update-feedback-with-reply"]
+            },
+            "description": "Attaches an admin reply and notifies the submitter. Requires an ADMIN token."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Feedback",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"feedbackId\": \"{{feedbackId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/feedback/delete-feedback",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedback", "delete-feedback"]
+            },
+            "description": "Deletes feedback by id."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Content (CMS)",
+      "description": "Admin-editable static content. GET endpoints are public; POST (upsert) and DELETE require an ADMIN token. All five types share the shape { description: string } and keep a single document per type.",
+      "item": [
+        {
+          "name": "Terms & Conditions",
+          "item": [
+            {
+              "name": "Upsert Terms & Conditions",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"<h1>Terms & Conditions</h1><p>...</p>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/manage/add-terms-conditions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "add-terms-conditions"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Terms & Conditions",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/manage/get-terms-conditions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "get-terms-conditions"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Terms & Conditions",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/manage/delete-terms-conditions?id={{contentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "delete-terms-conditions"],
+                  "query": [
+                    {
+                      "key": "id",
+                      "value": "{{contentId}}"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Privacy Policy",
+          "item": [
+            {
+              "name": "Upsert Privacy Policy",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"<h1>Privacy Policy</h1><p>...</p>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/manage/add-privacy-policy",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "add-privacy-policy"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Privacy Policy",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/manage/get-privacy-policy",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "get-privacy-policy"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Privacy Policy",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/manage/delete-privacy-policy?id={{contentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "delete-privacy-policy"],
+                  "query": [
+                    {
+                      "key": "id",
+                      "value": "{{contentId}}"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "About Us",
+          "item": [
+            {
+              "name": "Upsert About Us",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"<h1>About Us</h1><p>...</p>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/manage/add-about-us",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "add-about-us"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get About Us",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/manage/get-about-us",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "get-about-us"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete About Us",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/manage/delete-about-us?id={{contentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "delete-about-us"],
+                  "query": [
+                    {
+                      "key": "id",
+                      "value": "{{contentId}}"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "FAQ",
+          "item": [
+            {
+              "name": "Upsert FAQ",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"<h1>FAQ</h1><p>...</p>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/manage/add-faq",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "add-faq"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get FAQ",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/manage/get-faq",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "get-faq"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete FAQ",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/manage/delete-faq?id={{contentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "delete-faq"],
+                  "query": [
+                    {
+                      "key": "id",
+                      "value": "{{contentId}}"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Contact Us",
+          "item": [
+            {
+              "name": "Upsert Contact Us",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"<h1>Contact Us</h1><p>support@example.com</p>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/manage/add-contact-us",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "add-contact-us"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Contact Us",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/manage/get-contact-us",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "get-contact-us"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Contact Us",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/manage/delete-contact-us?id={{contentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["manage", "delete-contact-us"],
+                  "query": [
+                    {
+                      "key": "id",
+                      "value": "{{contentId}}"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

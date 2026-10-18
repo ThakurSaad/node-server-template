@@ -1,4 +1,4 @@
-const { status } = require("http-status");
+import { status } from "../../../util/httpStatus";
 import ApiError from "../../../error/ApiError";
 import QueryBuilder, { QueryParams } from "../../../builder/queryBuilder";
 import validateFields from "../../../util/validateFields";
@@ -45,7 +45,10 @@ const getReview = async (userData: UserData, query: { reviewId?: string }) => {
   return review;
 };
 
-const updateReview = async (userData: UserData, payload: Record<string, unknown>) => {
+const updateReview = async (
+  userData: UserData,
+  payload: Record<string, unknown>,
+) => {
   validateFields(payload, ["reviewId"]);
 
   const updateData = {
