@@ -7,3 +7,4 @@ entrypoint.sh
 yarn.lock
 package-lock.json
 config.bat
+.vscode/
