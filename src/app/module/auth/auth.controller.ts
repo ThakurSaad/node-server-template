@@ -1,4 +1,4 @@
-const { default: status } = require("http-status");
+import { status } from "../../../util/httpStatus";
 import { AuthService } from "./auth.service";
 import sendResponse from "../../../util/sendResponse";
 import catchAsync from "../../../util/catchAsync";
@@ -104,8 +104,20 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const refreshToken = catchAsync(async (req: Request, res: Response) => {
+  const token = req.cookies?.refreshToken || req.body?.refreshToken;
+  const result = await AuthService.refreshToken(token);
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Access token refreshed successfully",
+    data: result,
+  });
+});
+
 const AuthController = {
   registrationAccount,
+  refreshToken,
   activateAccount,
   loginAccount,
   changePassword,

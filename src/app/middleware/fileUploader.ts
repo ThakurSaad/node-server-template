@@ -1,13 +1,20 @@
 import multer, { StorageEngine } from "multer";
 import { Request } from "express";
+import crypto from "crypto";
 import fs from "fs";
 
-const allowedMimeTypes: string[] = [
-  "image/jpeg",
-  "image/png",
-  "image/jpg",
-  "image/webp",
-];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_COUNT = 4;
+
+// Extension is derived from the validated MIME type — never from the
+// user-controlled original filename
+const mimeTypeExtensions: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/jpg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+};
+const allowedMimeTypes: string[] = Object.keys(mimeTypeExtensions);
 const allowedFieldNames: string[] = ["profile_image"];
 
 // Validate if the provided MIME type is in the allowed list
@@ -45,7 +52,8 @@ const uploadFile = () => {
       file: Express.Multer.File,
       cb: (error: Error | null, filename?: string) => void,
     ): void {
-      const name = Date.now() + "-" + file.originalname;
+      const ext = mimeTypeExtensions[file.mimetype] || "";
+      const name = crypto.randomUUID() + ext;
 
       // Store uploaded file paths in req.uploadedFiles for deletion in case of error or rollback needed
       if (!req.uploadedFiles) {
@@ -84,9 +92,13 @@ const uploadFile = () => {
   const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
+    limits: {
+      fileSize: MAX_FILE_SIZE,
+      files: MAX_FILE_COUNT,
+    },
   }).fields([{ name: "profile_image", maxCount: 1 }]);
 
   return upload;
 };
 
-export {uploadFile}
+export { uploadFile };

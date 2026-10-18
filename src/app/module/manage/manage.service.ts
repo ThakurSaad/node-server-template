@@ -1,4 +1,4 @@
-const { default: status } = require("http-status");
+import { status } from "../../../util/httpStatus";
 import {
   TermsConditions,
   PrivacyPolicy,

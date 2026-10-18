@@ -1,4 +1,4 @@
-const { default: status } = require("http-status");
+import { status } from "../../../util/httpStatus";
 import { NotificationService } from "./notification.service";
 import sendResponse from "../../../util/sendResponse";
 import catchAsync from "../../../util/catchAsync";

@@ -1,3 +1,9 @@
+import { AuthUserPayload } from "../types/auth.types";
+
+export interface SocketData {
+  user: AuthUserPayload;
+}
+
 export interface ServerToClientEvents {
   send_message: (payload: unknown) => void;
   socket_error: (payload: { status: number; message: string }) => void;

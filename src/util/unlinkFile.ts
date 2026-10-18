@@ -1,4 +1,4 @@
-const { default: status } = require("http-status");
+import { status } from "./httpStatus";
 import fs from "fs/promises";
 import ApiError from "../error/ApiError";
 

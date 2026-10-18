@@ -1,4 +1,4 @@
-const status = require("http-status");
+import { status } from "../../../util/httpStatus";
 import Chat from "./Chat";
 import ApiError from "../../../error/ApiError";
 import validateFields from "../../../util/validateFields";
@@ -37,7 +37,6 @@ const postChat = async (
 
   const newChat = await Chat.create({
     participants: [userId, receiverId],
-    messages: [],
   });
 
   postNotification(
@@ -68,7 +67,6 @@ const getChatMessages = async (
   const limit = Number(query.limit) > 0 ? Number(query.limit) : 10;
   const skip = (page - 1) * limit;
 
-  // Fetch chat with participants (without populating messages to avoid huge payload)
   const chat = await Chat.findOne({ _id: query.chatId })
     .populate({
       path: "participants",
@@ -78,17 +76,14 @@ const getChatMessages = async (
 
   if (!chat) throw new ApiError(status.NOT_FOUND, "Chat not found");
 
-  // Total number of messages in the chat
-  const total = await Message.countDocuments({
-    _id: { $in: chat.messages },
-  });
-
-  // Paginate messages
-  const messages = await Message.find({ _id: { $in: chat.messages } })
-    .sort({ createdAt: -1 }) // newest first; adjust as needed
-    .skip(skip)
-    .limit(limit)
-    .lean();
+  const [total, messages] = await Promise.all([
+    Message.countDocuments({ chatId: chat._id }),
+    Message.find({ chatId: chat._id })
+      .sort({ createdAt: -1 }) // newest first; adjust as needed
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+  ]);
 
   return {
     meta: {
@@ -117,14 +112,14 @@ const getAllChats = async (userData: AuthUserPayload) => {
       $lookup: {
         from: "messages",
         let: {
-          messageIds: "$messages",
+          chatId: "$_id",
         },
         pipeline: [
           {
             $match: {
               $expr: {
                 $and: [
-                  { $in: ["$_id", "$$messageIds"] },
+                  { $eq: ["$chatId", "$$chatId"] },
                   { $eq: ["$receiver", userId] },
                   { $eq: ["$isRead", false] },
                 ],
@@ -181,7 +176,7 @@ const updateMessageAsSeen = async (
 
   const result = await Message.updateMany(
     {
-      _id: { $in: chat.messages },
+      chatId: chat._id,
       receiver: userId,
       isRead: false,
     },
