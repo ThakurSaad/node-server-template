@@ -6,3 +6,4 @@ dist/
 entrypoint.sh
 yarn.lock
 config.bat
+.env
