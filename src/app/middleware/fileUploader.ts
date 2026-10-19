@@ -2,6 +2,8 @@ import multer, { StorageEngine } from "multer";
 import { Request } from "express";
 import crypto from "crypto";
 import fs from "fs";
+import ApiError from "../../error/ApiError";
+import { status } from "../../util/httpStatus";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_FILE_COUNT = 4;
@@ -43,7 +45,7 @@ const uploadFile = () => {
       if (isValidFileType(file.mimetype)) {
         cb(null, uploadPath);
       } else {
-        cb(new Error("Invalid file type"));
+        cb(new ApiError(status.BAD_REQUEST, "Invalid file type"));
       }
     },
 
@@ -77,14 +79,14 @@ const uploadFile = () => {
 
     // Check if the fieldname is in the allowed list
     if (!allowedFieldNames.includes(file.fieldname)) {
-      return cb(new Error("Invalid fieldname"));
+      return cb(new ApiError(status.BAD_REQUEST, "Invalid fieldname"));
     }
 
     // Check if the file type is valid
     if (isValidFileType(file.mimetype)) {
       return cb(null, true);
     } else {
-      return cb(new Error("Invalid file type"));
+      return cb(new ApiError(status.BAD_REQUEST, "Invalid file type"));
     }
   };
 
