@@ -67,7 +67,10 @@ const getChatMessages = async (
   const limit = Number(query.limit) > 0 ? Number(query.limit) : 10;
   const skip = (page - 1) * limit;
 
-  const chat = await Chat.findOne({ _id: query.chatId })
+  const chat = await Chat.findOne({
+    _id: query.chatId,
+    participants: userData.userId,
+  })
     .populate({
       path: "participants",
       select: "name phoneNumber profile_image",
@@ -168,7 +171,10 @@ const updateMessageAsSeen = async (
 
   validateFields(payload, ["chatId"]);
 
-  const chat = await Chat.findById(payload.chatId).lean();
+  const chat = await Chat.findOne({
+    _id: payload.chatId,
+    participants: userId,
+  }).lean();
 
   if (!chat) {
     throw new ApiError(status.NOT_FOUND, "Chat not found");

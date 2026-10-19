@@ -3,7 +3,7 @@ import { status } from "../../../util/httpStatus";
 import QueryBuilder, { QueryParams } from "../../../builder/queryBuilder";
 import ApiError from "../../../error/ApiError";
 import validateFields from "../../../util/validateFields";
-import { EnumUserRole } from "../../../util/enum";
+import isAdmin from "../../../util/isAdmin";
 import AdminNotification from "./AdminNotification";
 import Notification from "./Notification";
 import { AuthUserPayload } from "../../../types/auth.types";
@@ -14,20 +14,16 @@ const getNotification = async (
   userData: AuthUserPayload,
   query: Record<string, unknown>,
 ) => {
-  const { role } = userData;
-  if (role !== EnumUserRole.ADMIN) validateFields(query, ["notificationId"]);
+  validateFields(query, ["notificationId"]);
 
-  if (role === EnumUserRole.ADMIN) {
-    const notification = await AdminNotification.findOne({}).lean();
-    if (!notification) {
-      throw new ApiError(status.NOT_FOUND, "Notification not found");
-    }
-    return notification;
-  }
+  // Users reach only their own notification; admins share the admin inbox
+  const notification = isAdmin(userData.role)
+    ? await AdminNotification.findById(query.notificationId).lean()
+    : await Notification.findOne({
+        _id: query.notificationId,
+        toId: userData.userId,
+      }).lean();
 
-  const notification = await Notification.findOne({
-    _id: query.notificationId,
-  }).lean();
   if (!notification) {
     throw new ApiError(status.NOT_FOUND, "Notification not found");
   }
@@ -46,7 +42,7 @@ const getAllNotifications = async (
 ) => {
   const { role, userId } = userData;
 
-  if (role === EnumUserRole.ADMIN) {
+  if (isAdmin(role)) {
     const notificationQuery = new QueryBuilder<IAdminNotification>(
       AdminNotification.find().lean(),
       query,
@@ -97,7 +93,7 @@ const updateAsReadUnread = async (
 ) => {
   const { role } = userData;
 
-  if (role === EnumUserRole.ADMIN) {
+  if (isAdmin(role)) {
     const result = await AdminNotification.updateMany(
       {},
       {
@@ -132,20 +128,16 @@ const deleteNotification = async (
   userData: AuthUserPayload,
   payload: Record<string, unknown>,
 ) => {
-  const { role } = userData;
   validateFields(payload, ["notificationId"]);
 
-  if (role === EnumUserRole.ADMIN) {
-    const result = await AdminNotification.findByIdAndDelete(
-      payload.notificationId,
-    );
-    if (!result) {
-      throw new ApiError(status.NOT_FOUND, "Notification not found");
-    }
-    return result;
-  }
+  // Users delete only their own notification; admins share the admin inbox
+  const result = isAdmin(userData.role)
+    ? await AdminNotification.findByIdAndDelete(payload.notificationId)
+    : await Notification.findOneAndDelete({
+        _id: payload.notificationId,
+        toId: userData.userId,
+      });
 
-  const result = await Notification.findByIdAndDelete(payload.notificationId);
   if (!result) {
     throw new ApiError(status.NOT_FOUND, "Notification not found");
   }

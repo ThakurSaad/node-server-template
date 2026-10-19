@@ -5,7 +5,7 @@ import postNotification from "../../../util/postNotification";
 import Feedback from "./Feedback";
 import User from "../user/User";
 import validateFields from "../../../util/validateFields";
-import { EnumUserRole } from "../../../util/enum";
+import isAdmin from "../../../util/isAdmin";
 
 interface UserData {
   userId: string;
@@ -72,7 +72,12 @@ const getFeedback = async (
 ) => {
   validateFields(query, ["feedbackId"]);
 
-  const feedback = await Feedback.findById(query.feedbackId);
+  // Users reach only their own feedback; admins can read any
+  const filter = isAdmin(userData.role)
+    ? { _id: query.feedbackId }
+    : { _id: query.feedbackId, user: userData.userId };
+
+  const feedback = await Feedback.findOne(filter);
   if (!feedback) throw new ApiError(status.NOT_FOUND, "Feedback not found");
 
   return feedback;
@@ -92,8 +97,7 @@ const getMyFeedback = async (userData: UserData) => {
 };
 
 const getAllFeedbacks = async (userData: UserData, query: QueryParams) => {
-  const queryObj =
-    userData.role === EnumUserRole.ADMIN ? {} : { user: userData.userId };
+  const queryObj = isAdmin(userData.role) ? {} : { user: userData.userId };
 
   const feedbackQuery = new QueryBuilder(Feedback.find(queryObj).lean(), query)
     .search([])
@@ -138,7 +142,12 @@ const updateFeedbackWithReply = async (
 const deleteFeedback = async (userData: UserData, payload: FeedbackPayload) => {
   validateFields(payload, ["feedbackId"]);
 
-  const result = await Feedback.deleteOne({ _id: payload.feedbackId });
+  // Users delete only their own feedback; admins can delete any
+  const filter = isAdmin(userData.role)
+    ? { _id: payload.feedbackId }
+    : { _id: payload.feedbackId, user: userData.userId };
+
+  const result = await Feedback.deleteOne(filter);
 
   if (!result.deletedCount)
     throw new ApiError(status.NOT_FOUND, "Feedback not found");
