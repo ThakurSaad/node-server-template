@@ -1,15 +1,10 @@
 import express, { Request, Response } from "express";
-import fs from "fs";
-import path from "path";
 import mongoose from "mongoose";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
-import swaggerUi from "swagger-ui-express";
-import YAML from "yaml";
-import config from "./config";
 import globalErrorHandler from "./app/middleware/globalErrorHandler";
 import requestId from "./app/middleware/requestId";
 import routes from "./app/routes";
@@ -32,9 +27,6 @@ app.use(
   helmet({
     // Uploads are consumed cross-origin by frontend apps
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    // Swagger UI (/docs, non-production) relies on inline scripts the
-    // default CSP blocks; production keeps the full policy
-    contentSecurityPolicy: config.env === "production" ? undefined : false,
   }),
 );
 app.use(compression());
@@ -70,15 +62,6 @@ app.get("/health", async (req: Request, res: Response) => {
     db: dbUp ? "up" : "down",
   });
 });
-
-// Interactive API docs, outside production only
-if (config.env !== "production") {
-  const openapiPath = path.join(process.cwd(), "docs", "openapi.yaml");
-  if (fs.existsSync(openapiPath)) {
-    const openapiDoc = YAML.parse(fs.readFileSync(openapiPath, "utf8"));
-    app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapiDoc));
-  }
-}
 
 app.use("/", routes);
 

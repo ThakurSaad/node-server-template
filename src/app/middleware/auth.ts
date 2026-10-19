@@ -22,7 +22,11 @@ const auth =
         throw new ApiError(httpStatus.UNAUTHORIZED, "Invalid token format");
       }
 
-      const token = tokenWithBearer.split(" ")[1].trim();
+      // "Bearer" with no token used to throw a TypeError here
+      const token = tokenWithBearer.split(" ")[1]?.trim();
+      if (!token) {
+        throw new ApiError(httpStatus.UNAUTHORIZED, "Invalid token format");
+      }
 
       const verifyUser = jwtHelpers.verifyToken<AuthUserPayload>(
         token,
@@ -42,6 +46,17 @@ const auth =
       }
       if (!isExist.isActive) {
         throw new ApiError(httpStatus.FORBIDDEN, "Account is not activated");
+      }
+      if (
+        Auth.isTokenIssuedBeforePasswordChange(
+          verifyUser.iat,
+          isExist.passwordChangedAt,
+        )
+      ) {
+        throw new ApiError(
+          httpStatus.UNAUTHORIZED,
+          "Password changed. Please log in again",
+        );
       }
 
       if (roles.length && !roles.includes(verifyUser.role)) {

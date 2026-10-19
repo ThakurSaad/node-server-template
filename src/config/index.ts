@@ -35,11 +35,20 @@ const envSchema = z.object({
   SUPER_ADMIN_EMAIL: z.string().optional(),
   SUPER_ADMIN_PASSWORD: z.string().optional(),
 
-  STRIPE_SECRET_KEY: z.string().optional(),
+  // Comma-separated browser origins allowed by CORS (exact match), e.g.
+  // https://app.example.com,http://localhost:3000
+  CORS_ORIGINS: z
+    .string()
+    .default("")
+    .transform((value) =>
+      value
+        .split(",")
+        // browsers send Origin without a trailing slash
+        .map((origin) => origin.trim().replace(/\/+$/, ""))
+        .filter(Boolean),
+    ),
 
   CLOUD_NAME: z.string().optional(),
-  API_KEY: z.string().optional(),
-  API_SECRET: z.string().optional(),
   CLOUDINARY_URL: z.string().optional(),
 
   EMAIL_TEMP_IMAGE: z.string().optional(),
@@ -86,17 +95,13 @@ const config = {
   },
   cloudinary: {
     cloud_name: env.CLOUD_NAME,
-    api_key: env.API_KEY,
-    api_secret: env.API_SECRET,
     cloudinary_url: env.CLOUDINARY_URL,
-  },
-  stripe: {
-    stripe_secret_key: env.STRIPE_SECRET_KEY,
   },
   super_admin: {
     email: env.SUPER_ADMIN_EMAIL,
     password: env.SUPER_ADMIN_PASSWORD,
   },
+  cors_origins: env.CORS_ORIGINS,
   variables: {
     email_temp_image: env.EMAIL_TEMP_IMAGE,
     email_temp_text_secondary_color: env.EMAIL_TEMP_TEXT_SECONDARY_COLOR,

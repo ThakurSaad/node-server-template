@@ -1,24 +1,23 @@
-import { status } from "./httpStatus";
 import fs from "fs/promises";
-import ApiError from "../error/ApiError";
+import path from "path";
+import { errorLogger } from "./logger";
 
+const UPLOADS_DIR = path.resolve("uploads") + path.sep;
+
+// Best-effort delete of an uploaded file. Never throws (a missing file must
+// not fail the request, and an unhandled rejection stops the server) and
+// never touches anything outside uploads/ (paths come from the database).
 const unlinkFile = async (filePath: string): Promise<boolean> => {
+  if (!filePath || !path.resolve(filePath).startsWith(UPLOADS_DIR)) {
+    errorLogger.error(`unlinkFile: refusing to delete ${filePath}`);
+    return false;
+  }
   try {
-    if (!filePath) {
-      throw new ApiError(status.BAD_REQUEST, "File path is required");
-    }
-
-    // 2. Properly await the access check
-    await fs.access(filePath);
-
-    // 3. Properly await the actual file deletion
     await fs.unlink(filePath);
-
     return true;
   } catch (error) {
-    // 4. Rethrow or handle errors intentionally so the caller knows it failed
-    console.error("Error unlinking file:", error);
-    throw error;
+    errorLogger.error(`unlinkFile: could not delete ${filePath}`, error);
+    return false;
   }
 };
 

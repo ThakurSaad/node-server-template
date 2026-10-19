@@ -1,11 +1,12 @@
 import { status } from "../../../util/httpStatus";
 import ApiError from "../../../error/ApiError";
-import QueryBuilder, { QueryParams } from "../../../builder/queryBuilder";
+import QueryBuilder from "../../../builder/queryBuilder";
+import { QueryParams } from "../../../types/common.types";
 import postNotification from "../../../util/postNotification";
 import Feedback from "./Feedback";
 import User from "../user/User";
 import validateFields from "../../../util/validateFields";
-import { EnumUserRole } from "../../../util/enum";
+import isAdmin from "../../../util/isAdmin";
 
 interface UserData {
   userId: string;
@@ -24,8 +25,6 @@ const postFeedback = async (
   userData: UserData | null,
   payload: FeedbackPayload,
 ) => {
-  validateFields(payload, ["feedback"]);
-
   let user: { name: string; email: string } | null = null;
 
   if (!userData) {
@@ -70,30 +69,19 @@ const getFeedback = async (
   userData: UserData,
   query: { feedbackId?: string },
 ) => {
-  validateFields(query, ["feedbackId"]);
+  // Users reach only their own feedback; admins can read any
+  const filter = isAdmin(userData.role)
+    ? { _id: query.feedbackId }
+    : { _id: query.feedbackId, user: userData.userId };
 
-  const feedback = await Feedback.findById(query.feedbackId);
+  const feedback = await Feedback.findOne(filter);
   if (!feedback) throw new ApiError(status.NOT_FOUND, "Feedback not found");
 
   return feedback;
 };
 
-const getMyFeedback = async (userData: UserData) => {
-  const { userId } = userData;
-
-  const feedback = await Feedback.find({ user: userId });
-  if (!feedback.length)
-    throw new ApiError(status.NOT_FOUND, "Feedback not found");
-
-  return {
-    count: feedback.length,
-    feedback,
-  };
-};
-
 const getAllFeedbacks = async (userData: UserData, query: QueryParams) => {
-  const queryObj =
-    userData.role === EnumUserRole.ADMIN ? {} : { user: userData.userId };
+  const queryObj = isAdmin(userData.role) ? {} : { user: userData.userId };
 
   const feedbackQuery = new QueryBuilder(Feedback.find(queryObj).lean(), query)
     .search([])
@@ -114,8 +102,6 @@ const updateFeedbackWithReply = async (
   userData: UserData,
   payload: FeedbackPayload,
 ) => {
-  validateFields(payload, ["feedbackId", "reply"]);
-
   const feedback = await Feedback.findByIdAndUpdate(
     payload.feedbackId,
     { reply: payload.reply },
@@ -136,9 +122,12 @@ const updateFeedbackWithReply = async (
 };
 
 const deleteFeedback = async (userData: UserData, payload: FeedbackPayload) => {
-  validateFields(payload, ["feedbackId"]);
+  // Users delete only their own feedback; admins can delete any
+  const filter = isAdmin(userData.role)
+    ? { _id: payload.feedbackId }
+    : { _id: payload.feedbackId, user: userData.userId };
 
-  const result = await Feedback.deleteOne({ _id: payload.feedbackId });
+  const result = await Feedback.deleteOne(filter);
 
   if (!result.deletedCount)
     throw new ApiError(status.NOT_FOUND, "Feedback not found");
@@ -149,7 +138,6 @@ const deleteFeedback = async (userData: UserData, payload: FeedbackPayload) => {
 const FeedbackService = {
   postFeedback,
   getFeedback,
-  getMyFeedback,
   getAllFeedbacks,
   updateFeedbackWithReply,
   deleteFeedback,

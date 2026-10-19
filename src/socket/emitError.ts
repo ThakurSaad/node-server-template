@@ -1,7 +1,7 @@
 import { status } from "../util/httpStatus";
-import chalk from "chalk";
 import { EnumSocketEvent } from "../util/enum";
 import { Socket } from "socket.io";
+import { errorLogger } from "../util/logger";
 
 const emitError = (
   socket: Socket,
@@ -13,7 +13,7 @@ const emitError = (
 
   if (disconnect) {
     socket.disconnect(true);
-    console.log(chalk.red("💀 disconnected because of error"));
+    errorLogger.error(`Socket disconnected: ${message}`);
   }
 
   throw new Error(message);

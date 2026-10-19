@@ -1,5 +1,7 @@
+import config from "../config";
+
 const socketCors = {
-  origin: "*",
+  origin: config.cors_origins,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 };
 

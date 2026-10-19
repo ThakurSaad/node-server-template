@@ -1,10 +1,12 @@
 import { status } from "./httpStatus";
+import validator from "validator";
 
 import ApiError from "../error/ApiError";
 import otpResendTemp from "../mail/otpResendTemp";
 import resetPassEmailTemp from "../mail/resetPassEmailTemp";
 import signUpEmailTemp from "../mail/signUpEmailTemp";
 import { sendEmail } from "../util/sendEmail";
+import { errorLogger } from "./logger";
 
 const sendActivationEmail = async (
   email: string,
@@ -19,13 +21,13 @@ const sendActivationEmail = async (
       email,
       subject: "Activate Your Account",
       html: signUpEmailTemp({
-        user: data.user,
+        user: validator.escape(data.user),
         activationCode: data.activationCode,
         activationCodeExpire: data.activationCodeExpire.toString(),
       }),
     });
   } catch (error) {
-    console.log(error);
+    errorLogger.error(`Activation email to ${email} failed`, error);
     throw new ApiError(status.INTERNAL_SERVER_ERROR, "Email was not sent");
   }
 };
@@ -43,7 +45,7 @@ const sendOtpResendEmail = async (
       email,
       subject: "New Activation Code",
       html: otpResendTemp({
-        user: data.user,
+        user: validator.escape(data.user),
         code: Number(data.activationCode),
         expiresIn: Number(data.activationCodeExpire),
         activationCode: Number(data.activationCode),
@@ -51,7 +53,7 @@ const sendOtpResendEmail = async (
       }),
     });
   } catch (error) {
-    console.log(error);
+    errorLogger.error(`Activation-code resend email to ${email} failed`, error);
     throw new ApiError(status.INTERNAL_SERVER_ERROR, "Email was not sent");
   }
 };
@@ -69,13 +71,13 @@ const sendResetPasswordEmail = async (
       email,
       subject: "Password Reset Code",
       html: resetPassEmailTemp({
-        name: data.user,
+        name: validator.escape(data.user),
         verificationCode: Number(data.verificationCode),
         verificationCodeExpire: data.verificationCodeExpire,
       }),
     });
   } catch (error) {
-    console.log(error);
+    errorLogger.error(`Password-reset email to ${email} failed`, error);
     throw new ApiError(status.INTERNAL_SERVER_ERROR, "Email was not sent");
   }
 };

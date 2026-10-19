@@ -6,9 +6,6 @@ const sendResponse = <T>(res: Response, data: ApiResponse<T>): void => {
     statusCode: data.statusCode,
     success: data.success,
     ...(data.message != null && { message: data.message }),
-    ...(data.activationToken != null && {
-      activationToken: data.activationToken,
-    }),
     ...(data.meta != null && { meta: data.meta }),
     ...(data.data != null && { data: data.data }),
   };

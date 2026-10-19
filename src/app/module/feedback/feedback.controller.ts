@@ -3,14 +3,11 @@ import { Request, Response } from "express";
 import { FeedbackService } from "./feedback.service";
 import sendResponse from "../../../util/sendResponse";
 import catchAsync from "../../../util/catchAsync";
-import { QueryParams } from "../../../builder/queryBuilder";
+import { QueryParams } from "../../../types/common.types";
 import ApiError from "../../../error/ApiError";
 
 const postFeedback = catchAsync(async (req: Request, res: Response) => {
-  if (!req.user) {
-    throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
-  }
-  const result = await FeedbackService.postFeedback(req.user, req.body);
+  const result = await FeedbackService.postFeedback(req.user ?? null, req.body);
   sendResponse(res, {
     statusCode: 200,
     success: true,
@@ -24,19 +21,6 @@ const getFeedback = catchAsync(async (req: Request, res: Response) => {
     throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
   }
   const result = await FeedbackService.getFeedback(req.user, req.query);
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Feedback retrieved",
-    data: result,
-  });
-});
-
-const getMyFeedback = catchAsync(async (req: Request, res: Response) => {
-  if (!req.user) {
-    throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
-  }
-  const result = await FeedbackService.getMyFeedback(req.user);
   sendResponse(res, {
     statusCode: 200,
     success: true,
@@ -95,7 +79,6 @@ const deleteFeedback = catchAsync(async (req: Request, res: Response) => {
 const FeedbackController = {
   postFeedback,
   getFeedback,
-  getMyFeedback,
   getAllFeedbacks,
   updateFeedbackWithReply,
   deleteFeedback,

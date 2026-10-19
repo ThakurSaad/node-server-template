@@ -44,6 +44,7 @@ const forgetPassOtpVerify = z.object({
 const resetPassword = z.object({
   body: z.object({
     email,
+    code: otpCode,
     newPassword: password,
     confirmPassword: z.string().min(1, "Confirm password is required"),
   }),

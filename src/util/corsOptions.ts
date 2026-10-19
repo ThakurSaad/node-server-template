@@ -1,18 +1,15 @@
-const allowedOrigins: string[] = ["https://www.example.com"];
+import type { CorsOptions } from "cors";
+import config from "../config";
+import ApiError from "../error/ApiError";
+import { status } from "./httpStatus";
 
-const corsOptions = {
-  origin: function (origin: string | undefined, callback: any) {
-    if (!origin) return callback(null, true);
-
-    if (
-      allowedOrigins.includes(origin) ||
-      origin.startsWith("http://10.10.20.") ||
-      origin.startsWith("http://3.76.70")
-    ) {
+// Exact match against CORS_ORIGINS, no prefix matching. Requests without an
+// Origin header (mobile apps, curl, server-to-server) are not subject to CORS.
+const corsOptions: CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || config.cors_origins.includes(origin))
       return callback(null, true);
-    }
-
-    callback(new Error("Not allowed by CORS"));
+    callback(new ApiError(status.FORBIDDEN, "Origin not allowed by CORS"));
   },
   credentials: true,
 };

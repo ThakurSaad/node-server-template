@@ -1,10 +1,10 @@
 import { Server, Socket } from "socket.io";
-import chalk from "chalk";
 import { EnumSocketEvent } from "../util/enum";
 import socketCatchAsync from "../util/socketCatchAsync";
 import ChatSocketController from "./chat.socket.controller";
 import SocketController from "./socket.controller";
 import { AuthUserPayload } from "../types/auth.types";
+import { logger } from "../util/logger";
 
 const socketHandlers = socketCatchAsync(async (socket: Socket, io: Server) => {
   // Set by the socketAuth middleware — never trust client-supplied ids
@@ -15,7 +15,7 @@ const socketHandlers = socketCatchAsync(async (socket: Socket, io: Server) => {
 
   socket.join(userId);
 
-  console.log(userId, chalk.green("connected"));
+  logger.info(`${userId} connected`);
 
   await SocketController.updateOnlineStatus(socket, io, {
     userId,
@@ -36,7 +36,7 @@ const socketHandlers = socketCatchAsync(async (socket: Socket, io: Server) => {
       isOnline: false,
     });
 
-    console.log(userId, chalk.red("disconnected"));
+    logger.info(`${userId} disconnected`);
   });
 });
 

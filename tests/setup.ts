@@ -9,3 +9,4 @@ process.env.JWT_EXPIRES_IN = "15m";
 process.env.JWT_REFRESH_EXPIRES_IN = "30d";
 // Low cost factor keeps password hashing fast in tests
 process.env.BCRYPT_SALT_ROUNDS = "4";
+process.env.CORS_ORIGINS = "http://allowed.test";

@@ -54,13 +54,6 @@ const globalErrorHandler = (
   res: Response,
   _next: NextFunction,
 ): void => {
-  const logError = config.env === "development" ? console.log : console.error;
-  logError("❌ globalErrorHandler", error);
-
-  if (error instanceof Error) {
-    errorLogger.error(error.message);
-  }
-
   // Default values
   let statusCode = 500;
   let message = "Something went wrong!";
@@ -130,7 +123,9 @@ const globalErrorHandler = (
       };
     },
     TypeError: () => ({
-      statusCode: 400,
+      // Every input that can reach a TypeError is validated elsewhere (zod
+      // schemas, the auth middleware); one here is our own bug.
+      statusCode: 500,
       message: error instanceof Error ? error.message : "Type Error",
       errorMessages: createErrorMessage(
         error instanceof Error ? error.message : "Type Error",
@@ -177,6 +172,29 @@ const globalErrorHandler = (
   // Ensure valid HTTP status code
   if (!Number.isInteger(statusCode) || statusCode < 100 || statusCode > 599) {
     statusCode = 500;
+  }
+
+  // 5xx: bug or outage, log the full stack. 4xx: client error, one line.
+  // The stack goes into the message itself: winston drops err.stack when the
+  // message contains a %s-style token, and URLs can contain one.
+  if (statusCode >= 500)
+    errorLogger.error(
+      `${req.method} ${req.originalUrl} [${req.id}]\n${error instanceof Error ? error.stack : String(error)}`,
+    );
+  else
+    errorLogger.error(
+      `${statusCode} ${req.method} ${req.originalUrl}: ${message}`,
+    );
+
+  // Unexpected errors carry internals (Mongo, bcrypt, TypeError text); never
+  // send those to clients in production. ApiError messages are deliberate.
+  if (
+    config.env === "production" &&
+    statusCode >= 500 &&
+    !(error instanceof ApiError)
+  ) {
+    message = "Something went wrong!";
+    errorMessages = createErrorMessage(message);
   }
 
   // Response

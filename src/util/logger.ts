@@ -8,17 +8,20 @@ const { combine, timestamp, label, printf } = format;
 interface LogInfo extends TransformableInfo {
   label?: string;
   timestamp?: string;
+  stack?: string;
 }
 
 // Custom log format
 export const myFormat = printf((info: LogInfo) => {
-  const { level, message, label, timestamp } = info;
+  const { level, message, label, timestamp, stack } = info;
   const date = new Date(timestamp ?? Date.now());
   const h = date.getHours();
   const m = date.getMinutes();
   const s = date.getSeconds();
+  // winston copies an Error argument's stack onto info.stack
+  const trace = stack ? `\n${stack}` : "";
 
-  return `${date.toDateString()} ${h}:${m}:${s} [${label}] ${level}: ${message}`;
+  return `${date.toDateString()} ${h}:${m}:${s} [${label}] ${level}: ${message}${trace}`;
 });
 
 const logDir = path.join(process.cwd(), "logs", "winston");
@@ -29,10 +32,6 @@ export const logger = createLogger({
   format: combine(label({ label: "Mount Fuji" }), timestamp(), myFormat),
   transports: [
     new transports.Console(),
-    new transports.File({
-      level: "info",
-      filename: path.join(logDir, "successes", "um-success.log"),
-    }),
     new DailyRotateFile({
       level: "info",
       filename: path.join(logDir, "successes", "um-%DATE%-success.log"),

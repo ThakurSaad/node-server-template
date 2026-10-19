@@ -1,0 +1,2 @@
+# LF everywhere (overrides core.autocrlf=true from the system gitconfig)
+* text=auto eol=lf

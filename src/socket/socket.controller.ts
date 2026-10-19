@@ -89,8 +89,8 @@ const updateLocation = socketCatchAsync(
       return emitError(socket, status.NOT_FOUND, "User not found");
     }
 
-    // Broadcast to everyone (consider throttling in production)
-    io.emit(
+    // Acknowledge to the sender only, never broadcast a user's location
+    socket.emit(
       EnumSocketEvent.UPDATE_LOCATION,
       emitResult({
         statusCode: status.OK,

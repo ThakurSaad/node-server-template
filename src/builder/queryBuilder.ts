@@ -1,24 +1,5 @@
 import { Model, Query } from "mongoose";
-
-// This describes the shape of the query parameters coming from the URL
-// (e.g. ?searchTerm=john&sort=name&page=2&limit=10&fields=name,email)
-// All fields are optional because the user may or may not include them
-export interface QueryParams {
-  searchTerm?: string;
-  sort?: string;
-  limit?: string;
-  page?: string;
-  fields?: string;
-  [key: string]: string | undefined; // allows extra filter fields like ?age=25
-}
-
-// This describes what countTotal() returns
-export interface PaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPage: number;
-}
+import { QueryParams, PaginationMeta } from "../types/common.types";
 
 // T is a generic — it represents the Mongoose document type (e.g. IUser, IProduct)
 // Think of it as a placeholder for "whatever document type you're querying"
@@ -28,6 +9,9 @@ class QueryBuilder<T> {
 
   // query holds the parsed URL query parameters (e.g. req.query)
   query: QueryParams;
+  // any[] on purpose: accepts lean()/populate() result shapes while T is
+  // still inferred from the document type (unknown[]/object[] fail with TS2322)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(modelQuery: Query<any[], T>, query: QueryParams) {
     this.modelQuery = modelQuery;
     this.query = query;
@@ -78,8 +62,12 @@ class QueryBuilder<T> {
 
   sort(): this {
     // Convert comma-separated sort string to space-separated (Mongoose format)
-    // Default to newest first if no sort is provided
-    const sort = (this.query?.sort || "").split(",").join(" ") || "-createdAt";
+    // Default to newest first if no sort is provided. String() also copes
+    // with ?sort=a&sort=b, which arrives as an array.
+    const sort =
+      String(this.query?.sort ?? "")
+        .split(",")
+        .join(" ") || "-createdAt";
 
     this.modelQuery = this.modelQuery.sort(sort);
 
@@ -87,8 +75,7 @@ class QueryBuilder<T> {
   }
 
   paginate(): this {
-    const page = Number(this.query?.page) || 1;
-    const limit = Number(this.query?.limit) || 10;
+    const { page, limit } = this.pagination();
     const skip = (page - 1) * limit;
 
     this.modelQuery = this.modelQuery.skip(skip).limit(limit);
@@ -98,8 +85,12 @@ class QueryBuilder<T> {
 
   fields(): this {
     // Convert comma-separated field list to space-separated (Mongoose format)
-    // Default to excluding __v if no fields are specified
-    const fields = (this.query?.fields || "").split(",").join(" ") || "-__v";
+    // Default to excluding __v if no fields are specified. String() also
+    // copes with ?fields=a&fields=b, which arrives as an array.
+    const fields =
+      String(this.query?.fields ?? "")
+        .split(",")
+        .join(" ") || "-__v";
 
     this.modelQuery = this.modelQuery.select(fields) as unknown as Query<
       T[],
@@ -107,6 +98,23 @@ class QueryBuilder<T> {
     >;
 
     return this;
+  }
+
+  private static readonly DEFAULT_LIMIT = 10;
+  private static readonly MAX_LIMIT = 100; // ?limit=1000000 must not dump a whole collection
+
+  // Shared by paginate() and countTotal() so the meta matches the query.
+  // Zero/negative pages are clamped too: a negative skip makes Mongo throw.
+  private pagination() {
+    const page = Math.max(Math.floor(Number(this.query?.page)) || 1, 1);
+    const limit = Math.min(
+      Math.max(
+        Math.floor(Number(this.query?.limit)) || QueryBuilder.DEFAULT_LIMIT,
+        1,
+      ),
+      QueryBuilder.MAX_LIMIT,
+    );
+    return { page, limit };
   }
 
   async countTotal(): Promise<PaginationMeta> {
@@ -117,8 +125,7 @@ class QueryBuilder<T> {
       totalQueries,
     );
 
-    const page = Number(this.query?.page) || 1;
-    const limit = Number(this.query?.limit) || 10;
+    const { page, limit } = this.pagination();
     const totalPage = Math.ceil(total / limit);
 
     return {
@@ -130,4 +137,4 @@ class QueryBuilder<T> {
   }
 }
 
-export default QueryBuilder;
+export = QueryBuilder;

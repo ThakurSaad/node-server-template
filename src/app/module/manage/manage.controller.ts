@@ -3,15 +3,9 @@ import catchAsync from "../../../util/catchAsync";
 import sendResponse from "../../../util/sendResponse";
 import { ManageService } from "./manage.service";
 
-const resolveUpsertResult = (result: any) => ({
-  message: result?.message ?? "Successful",
-  data: result?.result ?? result,
-});
-
 const addTermsConditions = catchAsync(async (req: Request, res: Response) => {
-  const result = await ManageService.addTermsConditions(req.body);
-  const { message, data } = resolveUpsertResult(result);
-  sendResponse(res, { statusCode: 200, success: true, message, data });
+  const { message, result } = await ManageService.addTermsConditions(req.body);
+  sendResponse(res, { statusCode: 200, success: true, message, data: result });
 });
 
 const getTermsConditions = catchAsync(async (_req: Request, res: Response) => {
@@ -39,9 +33,8 @@ const deleteTermsConditions = catchAsync(
 );
 
 const addPrivacyPolicy = catchAsync(async (req: Request, res: Response) => {
-  const result = await ManageService.addPrivacyPolicy(req.body);
-  const { message, data } = resolveUpsertResult(result);
-  sendResponse(res, { statusCode: 200, success: true, message, data });
+  const { message, result } = await ManageService.addPrivacyPolicy(req.body);
+  sendResponse(res, { statusCode: 200, success: true, message, data: result });
 });
 
 const getPrivacyPolicy = catchAsync(async (_req: Request, res: Response) => {
@@ -67,9 +60,8 @@ const deletePrivacyPolicy = catchAsync(async (req: Request, res: Response) => {
 });
 
 const addAboutUs = catchAsync(async (req: Request, res: Response) => {
-  const result = await ManageService.addAboutUs(req.body);
-  const { message, data } = resolveUpsertResult(result);
-  sendResponse(res, { statusCode: 200, success: true, message, data });
+  const { message, result } = await ManageService.addAboutUs(req.body);
+  sendResponse(res, { statusCode: 200, success: true, message, data: result });
 });
 
 const getAboutUs = catchAsync(async (_req: Request, res: Response) => {
@@ -93,9 +85,8 @@ const deleteAboutUs = catchAsync(async (req: Request, res: Response) => {
 });
 
 const addFaq = catchAsync(async (req: Request, res: Response) => {
-  const result = await ManageService.addFaq(req.body);
-  const { message, data } = resolveUpsertResult(result);
-  sendResponse(res, { statusCode: 200, success: true, message, data });
+  const { message, result } = await ManageService.addFaq(req.body);
+  sendResponse(res, { statusCode: 200, success: true, message, data: result });
 });
 
 const getFaq = catchAsync(async (_req: Request, res: Response) => {
@@ -119,9 +110,8 @@ const deleteFaq = catchAsync(async (req: Request, res: Response) => {
 });
 
 const addContactUs = catchAsync(async (req: Request, res: Response) => {
-  const result = await ManageService.addContactUs(req.body);
-  const { message, data } = resolveUpsertResult(result);
-  sendResponse(res, { statusCode: 200, success: true, message, data });
+  const { message, result } = await ManageService.addContactUs(req.body);
+  sendResponse(res, { statusCode: 200, success: true, message, data: result });
 });
 
 const getContactUs = catchAsync(async (_req: Request, res: Response) => {

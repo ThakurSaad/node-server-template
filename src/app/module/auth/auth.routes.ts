@@ -4,29 +4,38 @@ import validateRequest from "../../middleware/validateRequest";
 import { AuthController } from "../auth/auth.controller";
 import AuthValidation from "./auth.validation";
 import config from "../../../config";
-import limiter, { createLimiter } from "../../middleware/limiter";
+import createLimiter from "../../middleware/limiter";
 
 const router = express.Router();
 
+// Was the shared default limiter; kept at the same budget for /login
+const loginLimiter = createLimiter({ windowMs: 60 * 60 * 1000, limit: 10 });
 // OTP endpoints get tighter limits: sending codes is costlier than verifying
 const otpSendLimiter = createLimiter({ windowMs: 15 * 60 * 1000, limit: 3 });
 const otpVerifyLimiter = createLimiter({ windowMs: 15 * 60 * 1000, limit: 5 });
+// Refreshing is routine (every expired access token), so it gets its own,
+// much looser budget instead of sharing the OTP-verify limiter
+const refreshLimiter = createLimiter({ windowMs: 15 * 60 * 1000, limit: 60 });
 
 router
   .post(
     "/register",
+    // Shares the OTP-send budget with resend/forgot-password: together they
+    // allow 3 OTP emails per IP per 15 minutes. Counts failed requests too
+    // (e.g. re-registering an inactive account still sends an email).
+    otpSendLimiter,
     validateRequest(AuthValidation.register),
     AuthController.registrationAccount,
   )
   .post(
     "/login",
-    limiter,
+    loginLimiter,
     validateRequest(AuthValidation.login),
     AuthController.loginAccount,
   )
   .post(
     "/refresh-token",
-    otpVerifyLimiter,
+    refreshLimiter,
     validateRequest(AuthValidation.refreshToken),
     AuthController.refreshToken,
   )

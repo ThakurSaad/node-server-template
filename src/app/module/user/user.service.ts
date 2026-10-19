@@ -1,29 +1,29 @@
 import { status } from "../../../util/httpStatus";
-
-// import status from "../../../util/httpStatus";
 import Auth from "../auth/Auth";
 import User from "./User";
-import deleteFalsyField from "../../../util/deleteFalsyField";
 import ApiError from "../../../error/ApiError";
 import unlinkFile from "../../../util/unlinkFile";
 import { Request } from "express";
 import { AuthUserPayload } from "../../../types/auth.types";
 
 const updateProfile = async (req: Request) => {
-  const { body: data } = req;
   const { userId, authId } = req.user;
-  const updateData: Record<string, any> = { ...data };
-  const files = req.files as {
-    [fieldname: string]: Express.Multer.File[];
+  const { name, phoneNumber, address, dateOfBirth } = req.body ?? {};
+  // Explicit whitelist: never spread req.body into the document
+  // (profile_image, authId and email must not be client-settable)
+  const updateData: Record<string, string> = {
+    ...(name && { name }),
+    ...(phoneNumber && { phoneNumber }),
+    ...(address && { address }),
+    ...(dateOfBirth && { dateOfBirth }),
   };
+  const files = req.files as
+    { [fieldname: string]: Express.Multer.File[] } | undefined;
 
-  deleteFalsyField(data);
   const existingUser = await User.findById(userId).lean();
 
-  let hasNewImage = false;
-  if (files && files.profile_image) {
+  if (files?.profile_image) {
     updateData.profile_image = files.profile_image[0].path;
-    hasNewImage = true;
   }
 
   const [auth, user] = await Promise.all([
@@ -45,8 +45,8 @@ const updateProfile = async (req: Request) => {
 
   if (!auth || !user) throw new ApiError(status.NOT_FOUND, "User not found!");
 
-  if (hasNewImage && existingUser && existingUser.profile_image) {
-    unlinkFile(existingUser.profile_image);
+  if (updateData.profile_image && existingUser?.profile_image) {
+    await unlinkFile(existingUser.profile_image);
   }
 
   return user;
@@ -71,15 +71,13 @@ const getProfile = async (userData: AuthUserPayload) => {
   return result;
 };
 
-export const deleteMyAccount = async (payload: {
-  email: string;
-  password: string;
-}) => {
-  const { email, password } = payload;
-
+export const deleteMyAccount = async (
+  userData: AuthUserPayload,
+  payload: { password: string },
+) => {
   const [auth, user] = await Promise.all([
-    Auth.findOne({ email }).select("+password").lean(),
-    User.findOne({ email }).lean(),
+    Auth.findById(userData.authId).select("+password").lean(),
+    User.findById(userData.userId).lean(),
   ]);
 
   if (!auth || !user) {
@@ -87,20 +85,20 @@ export const deleteMyAccount = async (payload: {
   }
 
   if (
-    auth.password &&
-    !(await Auth.isPasswordMatched(password, auth.password))
+    !auth.password ||
+    !(await Auth.isPasswordMatched(payload.password, auth.password))
   ) {
     throw new ApiError(status.FORBIDDEN, "Password is incorrect");
-  }
-
-  if (user.profile_image) {
-    unlinkFile(user.profile_image);
   }
 
   await Promise.all([
     Auth.deleteOne({ _id: auth._id }),
     User.deleteOne({ _id: user._id }),
   ]);
+
+  if (user.profile_image) {
+    await unlinkFile(user.profile_image);
+  }
 };
 
 const UserService = {

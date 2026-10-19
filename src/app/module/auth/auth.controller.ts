@@ -3,18 +3,28 @@ import { AuthService } from "./auth.service";
 import sendResponse from "../../../util/sendResponse";
 import catchAsync from "../../../util/catchAsync";
 import config from "../../../config";
-import { Request, Response } from "express";
+import { CookieOptions, Request, Response } from "express";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import ApiError from "../../../error/ApiError";
 
-const registrationAccount = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthService.registrationAccount(req.body);
+// The refresh cookie expires together with the token and is only sent to the
+// refresh endpoint. Cross-site frontends can send refreshToken in the body.
+const refreshCookieOptions = (refreshToken: string): CookieOptions => ({
+  httpOnly: true,
+  secure: config.env === "production",
+  sameSite: "strict",
+  path: "/auth/refresh-token",
+  expires: new Date(((jwt.decode(refreshToken) as JwtPayload).exp ?? 0) * 1000),
+});
 
-  const isSuccess =
-    result.message === "Account created successfully. Please check your email";
+const registrationAccount = catchAsync(async (req: Request, res: Response) => {
+  const { created, ...result } = await AuthService.registrationAccount(
+    req.body,
+  );
 
   sendResponse(res, {
-    statusCode: isSuccess ? 200 : 400,
-    success: isSuccess,
+    statusCode: created ? 200 : 400,
+    success: created,
     message: result.message || "Something went wrong",
     data: result,
   });
@@ -33,11 +43,7 @@ const activateAccount = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthService.activateAccount(req.body);
   const { refreshToken } = result;
 
-  const cookieOptions = {
-    secure: config.env === "production",
-    httpOnly: true,
-  };
-  res.cookie("refreshToken", refreshToken, cookieOptions);
+  res.cookie("refreshToken", refreshToken, refreshCookieOptions(refreshToken));
   sendResponse(res, {
     statusCode: 201,
     success: true,
@@ -50,11 +56,7 @@ const loginAccount = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthService.loginAccount(req.body);
   const { refreshToken } = result;
 
-  const cookieOptions = {
-    secure: config.env === "production",
-    httpOnly: true,
-  };
-  res.cookie("refreshToken", refreshToken, cookieOptions);
+  res.cookie("refreshToken", refreshToken, refreshCookieOptions(refreshToken));
   sendResponse(res, {
     statusCode: 200,
     success: true,
@@ -71,7 +73,7 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: 200,
     success: true,
-    message: "Password changed successfully!",
+    message: "Password changed. Please log in again",
   });
 });
 

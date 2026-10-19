@@ -3,7 +3,7 @@ import { NotificationService } from "./notification.service";
 import sendResponse from "../../../util/sendResponse";
 import catchAsync from "../../../util/catchAsync";
 import type { Request, Response } from "express";
-import { QueryParams } from "../../../builder/queryBuilder";
+import { QueryParams } from "../../../types/common.types";
 import ApiError from "../../../error/ApiError";
 
 const getNotification = catchAsync(async (req: Request, res: Response) => {

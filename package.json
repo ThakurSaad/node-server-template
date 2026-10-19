@@ -21,16 +21,12 @@
     "seed:admin": "tsx src/scripts/seedSuperAdmin.ts",
     "make:file": "tsx src/util/generateModule.ts"
   },
-  "lint-staged": {
-    "src/**/*.{js,ts}": "eslint --fix"
-  },
   "keywords": [],
   "author": "thakur-saad",
   "license": "ISC",
   "description": "Express 5 + TypeScript + MongoDB backend starter template",
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "chalk": "^4.1.2",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -46,12 +42,9 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.2",
     "socket.io": "^4.8.3",
-    "stripe": "^20.4.1",
-    "swagger-ui-express": "^5.0.1",
     "validator": "^13.15.26",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -67,7 +60,6 @@
     "@types/node": "^25.6.0",
     "@types/nodemailer": "^8.0.0",
     "@types/supertest": "^7.2.1",
-    "@types/swagger-ui-express": "^4.1.8",
     "@types/validator": "^13.15.10",
     "eslint": "^10.3.0",
     "mongodb-memory-server": "^11.2.0",

@@ -10,9 +10,9 @@ interface IAuth {
   email: string;
   password: string;
   role: string;
-  isVerified?: boolean;
   isBlocked?: boolean;
   isActive?: boolean;
+  passwordChangedAt?: Date;
   verificationCode?: string;
   verificationCodeExpire?: Date;
   verificationAttempts?: number;
@@ -27,6 +27,10 @@ interface AuthModel extends Model<IAuth> {
     givenPassword: string,
     savedPassword: string,
   ): Promise<boolean>;
+  isTokenIssuedBeforePasswordChange(
+    iat?: number,
+    passwordChangedAt?: Date,
+  ): boolean;
 }
 
 const AuthSchema = new Schema<IAuth, AuthModel>(
@@ -54,9 +58,6 @@ const AuthSchema = new Schema<IAuth, AuthModel>(
       enum: Object.values(EnumUserRole),
       required: true,
     },
-    isVerified: {
-      type: Boolean,
-    },
     isBlocked: {
       type: Boolean,
       default: false,
@@ -64,6 +65,9 @@ const AuthSchema = new Schema<IAuth, AuthModel>(
     isActive: {
       type: Boolean,
       default: false,
+    },
+    passwordChangedAt: {
+      type: Date,
     },
     verificationCode: {
       type: String,
@@ -101,7 +105,6 @@ AuthSchema.statics.isAuthExist = async function (email: string) {
       role: 1,
       isActive: 1,
       isBlocked: 1,
-      isVerified: 1,
     },
   );
 };
@@ -111,6 +114,16 @@ AuthSchema.statics.isPasswordMatched = async function (
   savedPassword: string,
 ) {
   return await bcrypt.compare(givenPassword, savedPassword);
+};
+
+// JWT iat has 1-second resolution, so compare whole seconds: a token issued
+// in the same second as the change (e.g. the re-login right after) stays valid
+AuthSchema.statics.isTokenIssuedBeforePasswordChange = function (
+  iat?: number,
+  passwordChangedAt?: Date,
+) {
+  if (!passwordChangedAt) return false;
+  return !iat || iat < Math.floor(passwordChangedAt.getTime() / 1000);
 };
 
 AuthSchema.pre("save", async function () {

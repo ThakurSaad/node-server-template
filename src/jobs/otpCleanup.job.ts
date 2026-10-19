@@ -31,7 +31,6 @@ const cleanupExpiredOtpFields = async (
       },
       {
         $unset: {
-          isVerified: "",
           verificationCode: "",
           verificationCodeExpire: "",
           verificationAttempts: "",
