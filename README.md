@@ -555,6 +555,7 @@ This generates `Booking.ts` (model), `booking.controller.ts`, `booking.service.t
 - **ESLint flat config** with `typescript-eslint` recommended rules
 - **Prettier** enforced via `prettier:check`, with `lint-staged` configured for pre-commit fixing
 - **Vitest + Supertest + mongodb-memory-server** — the full auth lifecycle (register → activate → login → refresh → change password), OTP brute-force lockout, and QueryBuilder injection-safety are covered by tests that run against a real in-memory MongoDB
+
 ## Further Documentation
 
 Extended documentation lives in [`docs/`](./docs):
