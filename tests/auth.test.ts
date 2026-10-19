@@ -9,8 +9,12 @@ vi.mock("../src/util/sendEmail", () => ({
 
 import app from "../src/app";
 import Auth from "../src/app/module/auth/Auth";
+import User from "../src/app/module/user/User";
 import { AuthService } from "../src/app/module/auth/auth.service";
+import { sendEmail } from "../src/util/sendEmail";
 import { connectTestDB, disconnectTestDB } from "./helpers/db";
+
+const sendEmailMock = vi.mocked(sendEmail);
 
 const user = {
   name: "Test User",
@@ -73,6 +77,35 @@ describe("registration", () => {
       "+password",
     );
     expect(withPassword!.password).toMatch(/^\$2[aby]\$/);
+  });
+
+  it("returns 500 instead of crashing when the email cannot be sent", async () => {
+    sendEmailMock.mockRejectedValueOnce(new Error("SMTP down"));
+
+    const email = "smtp-down@example.com";
+    const res = await request(app)
+      .post("/auth/register")
+      .send({ ...user, email });
+
+    expect(res.status).toBe(500);
+    expect(res.body.message).toBe("Email was not sent");
+    expect(await Auth.exists({ email })).toBeTruthy();
+  });
+
+  it("rolls back the Auth record when creating the profile fails", async () => {
+    const createSpy = vi
+      .spyOn(User, "create")
+      .mockRejectedValueOnce(new Error("db down"));
+
+    const email = "profile-create-fails@example.com";
+    const res = await request(app)
+      .post("/auth/register")
+      .send({ ...user, email });
+
+    expect(res.status).toBe(500);
+    expect(await Auth.exists({ email })).toBeNull();
+
+    createSpy.mockRestore();
   });
 });
 

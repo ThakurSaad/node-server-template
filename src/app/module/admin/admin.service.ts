@@ -42,7 +42,7 @@ const createAdmin = async (payload: {
 };
 
 const updateProfile = async (req: Request) => {
-  const { body: data } = req;
+  const data = req.body ?? {};
   const { userId, authId } = req.user as AuthUserPayload;
   const files = req.files as
     | {
@@ -85,7 +85,7 @@ const updateProfile = async (req: Request) => {
   if (!auth || !admin) throw new ApiError(status.NOT_FOUND, "User not found!");
 
   if (hasNewImage && existingUser && existingUser.profile_image) {
-    unlinkFile(existingUser.profile_image);
+    await unlinkFile(existingUser.profile_image);
   }
 
   return admin;
@@ -128,7 +128,7 @@ const deleteMyAccount = async (payload: {
   }
 
   if (admin.profile_image) {
-    unlinkFile(admin.profile_image);
+    await unlinkFile(admin.profile_image);
   }
 
   await Promise.all([

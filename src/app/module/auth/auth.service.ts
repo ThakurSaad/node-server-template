@@ -101,7 +101,7 @@ const registrationAccount = async (payload: {
       user.activationAttempts = 0;
       await user.save();
 
-      EmailHelpers.sendOtpResendEmail(email, data);
+      await EmailHelpers.sendOtpResendEmail(email, data);
     }
 
     return {
@@ -110,15 +110,17 @@ const registrationAccount = async (payload: {
     };
   }
 
-  EmailHelpers.sendActivationEmail(email, data);
-
+  // Persist first, then email: never send a code for an account that failed
+  // to save. If the email fails, the account still exists and "resend" works.
   const auth = await Auth.create(authData);
+  try {
+    await User.create({ authId: auth._id, name, email });
+  } catch (error) {
+    await Auth.deleteOne({ _id: auth._id }); // never leave an Auth without a profile
+    throw error;
+  }
 
-  await User.create({
-    authId: auth._id,
-    name,
-    email,
-  });
+  await EmailHelpers.sendActivationEmail(email, data);
 
   return {
     isActive: false,
@@ -151,7 +153,7 @@ const resendActivationCode = async (payload: { email: string }) => {
     },
   );
 
-  EmailHelpers.sendOtpResendEmail(email, data);
+  await EmailHelpers.sendOtpResendEmail(email, data);
 };
 
 const activateAccount = async (payload: {
@@ -321,7 +323,7 @@ const forgotPass = async (payload: { email: string }) => {
     ),
   };
 
-  EmailHelpers.sendResetPasswordEmail(email, data);
+  await EmailHelpers.sendResetPasswordEmail(email, data);
 };
 
 const forgetPassOtpVerify = async (payload: {

@@ -1,15 +1,12 @@
 import Notification from "../app/module/notification/Notification";
 import AdminNotification from "../app/module/notification/AdminNotification";
+import { errorLogger } from "./logger";
 
 const postNotification = async (
   title: string,
   message: string,
   toId: string | null = null,
 ): Promise<void> => {
-  if (!title || !message) {
-    throw new Error("Missing required fields: title, or message");
-  }
-
   try {
     if (!toId) {
       await AdminNotification.create({ title, message });
@@ -17,7 +14,8 @@ const postNotification = async (
       await Notification.create({ toId, title, message });
     }
   } catch (error) {
-    console.error("Failed to post notification:", error);
+    // fire-and-forget callers: this must never reject
+    errorLogger.error("Failed to post notification", error);
   }
 };
 
