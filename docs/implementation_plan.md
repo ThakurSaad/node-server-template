@@ -59,7 +59,7 @@
 - ESLint comes after the code phases on purpose. 9 of today's 12 lint errors sit on lines those phases rewrite anyway.
 - Rollback: every step is an ordinary commit, so `git revert` undoes it. 3a (hashed OTPs) and 3b (`passwordChangedAt`) are also safe to revert after deploying: at worst, OTPs issued in the previous 3 minutes stop matching. **(review)**
 
-**Decisions needed.** Each default below is what the plan implements.
+**Decisions.** Each default below is what the plan implements. **All five (D1–D5) are confirmed** (2026-10-19).
 
 | #   | Decision                                                | Default (planned)                                                                                                                                                                                              | Alternative                                                                                                           |
 | --- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
