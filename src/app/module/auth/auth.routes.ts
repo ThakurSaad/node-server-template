@@ -11,6 +11,9 @@ const router = express.Router();
 // OTP endpoints get tighter limits: sending codes is costlier than verifying
 const otpSendLimiter = createLimiter({ windowMs: 15 * 60 * 1000, limit: 3 });
 const otpVerifyLimiter = createLimiter({ windowMs: 15 * 60 * 1000, limit: 5 });
+// Refreshing is routine (every expired access token), so it gets its own,
+// much looser budget instead of sharing the OTP-verify limiter
+const refreshLimiter = createLimiter({ windowMs: 15 * 60 * 1000, limit: 60 });
 
 router
   .post(
@@ -26,7 +29,7 @@ router
   )
   .post(
     "/refresh-token",
-    otpVerifyLimiter,
+    refreshLimiter,
     validateRequest(AuthValidation.refreshToken),
     AuthController.refreshToken,
   )

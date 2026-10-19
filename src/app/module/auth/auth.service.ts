@@ -385,7 +385,7 @@ const resetPassword = async (payload: {
   await Auth.updateOne(
     { email },
     {
-      $set: { password: hashedPassword },
+      $set: { password: hashedPassword, passwordChangedAt: new Date() },
       $unset: {
         verificationCode: "",
         verificationCodeExpire: "",
@@ -415,6 +415,13 @@ const refreshToken = async (token: string) => {
     throw new ApiError(status.FORBIDDEN, "Account is not activated");
   if (auth.isBlocked)
     throw new ApiError(status.FORBIDDEN, "You are blocked. Contact support");
+  if (
+    Auth.isTokenIssuedBeforePasswordChange(verified.iat, auth.passwordChangedAt)
+  )
+    throw new ApiError(
+      status.UNAUTHORIZED,
+      "Password changed. Please log in again",
+    );
 
   let result;
   switch (auth.role) {
@@ -476,7 +483,10 @@ const changePassword = async (
 
   const hashedPassword = await hashPass(newPassword);
 
-  await Auth.updateOne({ email }, { password: hashedPassword });
+  await Auth.updateOne(
+    { email },
+    { password: hashedPassword, passwordChangedAt: new Date() },
+  );
 };
 
 const hashPass = async (newPassword: string) => {

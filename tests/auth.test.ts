@@ -188,8 +188,12 @@ describe("activation and login", () => {
     expect(res.status).toBe(401);
   });
 
-  it("changes the password (hashed) and allows re-login", async () => {
+  it("changes the password, revokes older tokens and allows re-login", async () => {
     const newPassword = "new-password-456";
+
+    // iat has 1-second resolution: without the wait, a token issued in the
+    // same second as the change could legitimately still be valid
+    await new Promise((resolve) => setTimeout(resolve, 1100));
 
     const change = await client()
       .patch("/auth/change-password")
@@ -204,10 +208,27 @@ describe("activation and login", () => {
     const auth = await Auth.findOne({ email: user.email }).select("+password");
     expect(auth!.password).toMatch(/^\$2[aby]\$/);
 
+    // the pre-change access and refresh tokens are both revoked
+    const oldAccess = await client()
+      .get("/user/profile")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(oldAccess.status).toBe(401);
+
+    const oldRefresh = await client()
+      .post("/auth/refresh-token")
+      .send({ refreshToken });
+    expect(oldRefresh.status).toBe(401);
+
     const relogin = await client()
       .post("/auth/login")
       .send({ email: user.email, password: newPassword });
     expect(relogin.status).toBe(200);
+    accessToken = relogin.body.data.accessToken;
+
+    const newTokenWorks = await client()
+      .get("/user/profile")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(newTokenWorks.status).toBe(200);
   });
 
   it("blocks API access for blocked accounts even with a valid token", async () => {
@@ -313,6 +334,10 @@ describe("password reset", () => {
     const account = await createAccount("USER");
     const newPassword = "brand-new-pass-2";
 
+    // iat has 1-second resolution: without the wait, the pre-reset token
+    // (issued in the same second) could legitimately still be valid
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
     await client().post("/auth/forgot-password").send({ email: account.email });
     const code = lastCodeSentTo(account.email);
 
@@ -337,5 +362,42 @@ describe("password reset", () => {
       .post("/auth/login")
       .send({ email: account.email, password: newPassword });
     expect(login.status).toBe(200);
+
+    // the token issued before the reset is revoked
+    const oldToken = await client()
+      .get("/user/profile")
+      .set("Authorization", `Bearer ${account.token}`);
+    expect(oldToken.status).toBe(401);
+  });
+});
+
+describe("refresh cookie", () => {
+  it("sets an httpOnly, strict refresh cookie scoped to the refresh endpoint", async () => {
+    const account = await createAccount("USER");
+
+    const res = await client()
+      .post("/auth/login")
+      .send({ email: account.email, password: account.password });
+
+    const cookie = String(res.headers["set-cookie"]);
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("SameSite=Strict");
+    expect(cookie).toContain("Path=/auth/refresh-token");
+    expect(cookie).toContain("Expires=");
+  });
+
+  it("refreshes with only the refresh cookie and no body", async () => {
+    const account = await createAccount("USER");
+
+    const login = await client()
+      .post("/auth/login")
+      .send({ email: account.email, password: account.password });
+
+    const refreshed = await client()
+      .post("/auth/refresh-token")
+      .set("Cookie", login.headers["set-cookie"]);
+
+    expect(refreshed.status).toBe(200);
+    expect(refreshed.body.data.accessToken).toBeTruthy();
   });
 });

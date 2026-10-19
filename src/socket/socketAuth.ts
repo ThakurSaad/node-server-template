@@ -29,6 +29,10 @@ const socketAuth = async (
     if (!auth) return next(new Error("Account does not exist"));
     if (auth.isBlocked) return next(new Error("You are blocked"));
     if (!auth.isActive) return next(new Error("Account is not activated"));
+    if (
+      Auth.isTokenIssuedBeforePasswordChange(user.iat, auth.passwordChangedAt)
+    )
+      return next(new Error("Password changed. Please log in again"));
 
     socket.data.user = user;
     next();
