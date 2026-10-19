@@ -1,5 +1,5 @@
 import fs from "fs";
-import chalk from "chalk";
+import { logger, errorLogger } from "./logger";
 
 const deleteUploadedFiles = (uploadedFiles?: string[]): void => {
   if (!uploadedFiles || uploadedFiles.length === 0) return;
@@ -8,16 +8,13 @@ const deleteUploadedFiles = (uploadedFiles?: string[]): void => {
     if (fs.existsSync(filePath)) {
       fs.unlink(filePath, (err: NodeJS.ErrnoException | null) => {
         if (err) {
-          console.error(
-            chalk.bgRed(`❌ Failed to delete file: ${filePath}`),
-            err,
-          );
+          errorLogger.error(`Failed to delete file: ${filePath}`, err);
         } else {
-          console.log(chalk.bgGreen(`✅ Deleted file: ${filePath}`));
+          logger.info(`Deleted file: ${filePath}`);
         }
       });
     } else {
-      console.error(chalk.bgYellow(`⚠️ File does not exist: ${filePath}`));
+      errorLogger.error(`File does not exist: ${filePath}`);
     }
   });
 };

@@ -10,8 +10,15 @@ import emitError from "./emitError";
 import socketCatchAsync from "../util/socketCatchAsync";
 import { Server, Socket } from "socket.io";
 
+interface SendMessagePayload {
+  userId: string;
+  receiverId: string;
+  chatId: string;
+  message: string;
+}
+
 const sendMessage = socketCatchAsync(
-  async (socket: Socket, io: Server, payload: any): Promise<any> => {
+  async (socket: Socket, io: Server, payload: SendMessagePayload) => {
     validateSocketFields(socket, payload, ["receiverId", "chatId", "message"]);
     const { userId, receiverId, chatId, message } = payload;
 
