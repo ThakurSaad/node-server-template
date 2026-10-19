@@ -58,8 +58,12 @@ const getChatMessages = async (
    * Paginate ONLY the messages array while keeping the existing response format.
    * Accepts optional `page` & `limit` query params (default 1 & 10).
    */
-  const page = Number(query.page) > 0 ? Number(query.page) : 1;
-  const limit = Number(query.limit) > 0 ? Number(query.limit) : 10;
+  const page = Number(query.page) >= 1 ? Math.floor(Number(query.page)) : 1;
+  // Capped at 100: an unbounded limit would let a client dump a whole chat
+  const limit = Math.min(
+    Number(query.limit) >= 1 ? Math.floor(Number(query.limit)) : 10,
+    100,
+  );
   const skip = (page - 1) * limit;
 
   const chat = await Chat.findOne({

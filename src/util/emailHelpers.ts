@@ -1,4 +1,5 @@
 import { status } from "./httpStatus";
+import validator from "validator";
 
 import ApiError from "../error/ApiError";
 import otpResendTemp from "../mail/otpResendTemp";
@@ -19,7 +20,7 @@ const sendActivationEmail = async (
       email,
       subject: "Activate Your Account",
       html: signUpEmailTemp({
-        user: data.user,
+        user: validator.escape(data.user),
         activationCode: data.activationCode,
         activationCodeExpire: data.activationCodeExpire.toString(),
       }),
@@ -43,7 +44,7 @@ const sendOtpResendEmail = async (
       email,
       subject: "New Activation Code",
       html: otpResendTemp({
-        user: data.user,
+        user: validator.escape(data.user),
         code: Number(data.activationCode),
         expiresIn: Number(data.activationCodeExpire),
         activationCode: Number(data.activationCode),
@@ -69,7 +70,7 @@ const sendResetPasswordEmail = async (
       email,
       subject: "Password Reset Code",
       html: resetPassEmailTemp({
-        name: data.user,
+        name: validator.escape(data.user),
         verificationCode: Number(data.verificationCode),
         verificationCodeExpire: data.verificationCodeExpire,
       }),

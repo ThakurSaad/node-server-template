@@ -11,6 +11,7 @@ import ApiError from "../src/error/ApiError";
 import globalErrorHandler from "../src/app/middleware/globalErrorHandler";
 import unlinkFile from "../src/util/unlinkFile";
 import postNotification from "../src/util/postNotification";
+import validateFields from "../src/util/validateFields";
 import { connectTestDB, disconnectTestDB } from "./helpers/db";
 import { createAccount } from "./helpers/accounts";
 
@@ -97,6 +98,16 @@ describe("auth middleware", () => {
       .get("/user/profile")
       .set("Authorization", "Bearer");
     expect(res.status).toBe(401);
+  });
+});
+
+describe("validateFields", () => {
+  it("accepts false and 0 but rejects missing or blank values", () => {
+    expect(() =>
+      validateFields({ flag: false, count: 0 }, ["flag", "count"]),
+    ).not.toThrow();
+    expect(() => validateFields({ name: "" }, ["name"])).toThrow();
+    expect(() => validateFields({}, ["name"])).toThrow();
   });
 });
 

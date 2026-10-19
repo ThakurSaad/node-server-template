@@ -109,4 +109,25 @@ describe("QueryBuilder.paginate + countTotal", () => {
     expect(meta.totalPage).toBe(2);
     expect(result.length).toBe(6);
   });
+
+  it("caps limit at 100", async () => {
+    const qb = new QueryBuilder(Item.find(), { limit: "1000000" })
+      .filter()
+      .paginate();
+
+    const meta = await qb.countTotal();
+    expect(meta.limit).toBe(100);
+  });
+
+  it("does not throw on repeated sort/fields params", async () => {
+    // Express arrives with ?sort=a&sort=b (or ?fields=a&fields=b) as an array
+    const qb = new QueryBuilder(Item.find(), {
+      sort: ["name", "category"],
+      fields: ["name", "category"],
+    } as unknown as Record<string, string>)
+      .sort()
+      .fields();
+
+    await expect(qb.modelQuery).resolves.toBeDefined();
+  });
 });

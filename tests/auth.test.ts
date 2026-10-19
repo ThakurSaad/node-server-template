@@ -112,6 +112,22 @@ describe("registration", () => {
     expect(await Auth.exists({ email })).toBeTruthy();
   });
 
+  it("escapes HTML in the name before it goes into the email", async () => {
+    const maliciousName = '<a href="https://evil.test">Verify</a>';
+    const email = "html-escape@example.com";
+
+    await client()
+      .post("/auth/register")
+      .send({ ...user, name: maliciousName, email });
+
+    const html = sendEmailMock.mock.calls
+      .filter(([o]) => o.email === email)
+      .at(-1)?.[0].html;
+
+    expect(html).not.toContain('<a href="https://evil.test">');
+    expect(html).toContain("&lt;a href=");
+  });
+
   it("rolls back the Auth record when creating the profile fails", async () => {
     const createSpy = vi
       .spyOn(User, "create")
