@@ -1,6 +1,7 @@
 import { status } from "../../../util/httpStatus";
 import { SignOptions } from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 import ApiError from "../../../error/ApiError";
 import config from "../../../config";
@@ -15,6 +16,11 @@ import EmailHelpers from "../../../util/emailHelpers";
 import { AuthUserPayload } from "../../../types/auth.types";
 
 const MAX_OTP_ATTEMPTS = 5;
+
+// Only a keyed hash of each OTP is stored. HMAC rather than a bare sha256:
+// 6-digit codes are enumerable in milliseconds, the key makes a leaked hash useless
+const hashOtp = (code: string) =>
+  crypto.createHmac("sha256", config.jwt.secret).update(code).digest("hex");
 
 const invalidateActivationCode = async (email: string) => {
   await Auth.updateOne(
@@ -34,7 +40,6 @@ const invalidateVerificationCode = async (email: string) => {
     { email },
     {
       $unset: {
-        isVerified: "",
         verificationCode: "",
         verificationCodeExpire: "",
         verificationAttempts: "",
@@ -67,7 +72,7 @@ const registrationAccount = async (payload: {
     name,
     email,
     password,
-    activationCode,
+    activationCode: hashOtp(activationCode),
     activationCodeExpire,
   };
   const data = {
@@ -96,7 +101,7 @@ const registrationAccount = async (payload: {
       : "Already have an account. Please activate";
 
     if (!user.isActive) {
-      user.activationCode = activationCode;
+      user.activationCode = hashOtp(activationCode);
       user.activationCodeExpire = activationCodeExpire;
       user.activationAttempts = 0;
       await user.save();
@@ -147,7 +152,7 @@ const resendActivationCode = async (payload: { email: string }) => {
   await Auth.updateOne(
     { _id: user._id },
     {
-      activationCode,
+      activationCode: hashOtp(activationCode),
       activationCodeExpire,
       activationAttempts: 0,
     },
@@ -181,7 +186,7 @@ const activateAccount = async (payload: {
       "Too many attempts. Get a new activation code",
     );
   }
-  if (auth.activationCode !== activationCode) {
+  if (auth.activationCode !== hashOtp(activationCode)) {
     await Auth.updateOne({ email }, { $inc: { activationAttempts: 1 } });
     throw new ApiError(status.BAD_REQUEST, "Code didn't match!");
   }
@@ -309,7 +314,7 @@ const forgotPass = async (payload: { email: string }) => {
   await Auth.updateOne(
     { _id: user._id },
     {
-      verificationCode,
+      verificationCode: hashOtp(verificationCode),
       verificationCodeExpire,
       verificationAttempts: 0,
     },
@@ -326,15 +331,9 @@ const forgotPass = async (payload: { email: string }) => {
   await EmailHelpers.sendResetPasswordEmail(email, data);
 };
 
-const forgetPassOtpVerify = async (payload: {
-  email: string;
-  code: string;
-}) => {
-  const { email, code } = payload;
-
-  if (!email) throw new ApiError(status.BAD_REQUEST, "Missing email");
-
-  const auth = await Auth.findOne({ email: email });
+// Expiry, attempt cap and match check, shared by verify and reset
+const checkVerificationCode = async (email: string, code: string) => {
+  const auth = await Auth.findOne({ email });
   if (!auth) throw new ApiError(status.NOT_FOUND, "Account does not exist!");
   if (!auth.verificationCode)
     throw new ApiError(
@@ -353,34 +352,33 @@ const forgetPassOtpVerify = async (payload: {
       "Too many attempts. Get a new verification code",
     );
   }
-  if (auth.verificationCode !== code) {
+  if (auth.verificationCode !== hashOtp(code)) {
     await Auth.updateOne({ email }, { $inc: { verificationAttempts: 1 } });
     throw new ApiError(status.BAD_REQUEST, "Invalid verification code!");
   }
+};
 
-  await Auth.updateOne(
-    { email: auth.email },
-    {
-      isVerified: true,
-      $unset: { verificationCode: "", verificationAttempts: "" },
-    },
-  );
+// Only checks the code (so the client can show the new-password form). It
+// changes no state: reset-password checks the code again.
+const forgetPassOtpVerify = async (payload: {
+  email: string;
+  code: string;
+}) => {
+  await checkVerificationCode(payload.email, payload.code);
 };
 
 const resetPassword = async (payload: {
   email: string;
+  code: string;
   newPassword: string;
   confirmPassword: string;
 }) => {
-  const { email, newPassword, confirmPassword } = payload;
+  const { email, code, newPassword, confirmPassword } = payload;
 
   if (newPassword !== confirmPassword)
     throw new ApiError(status.BAD_REQUEST, "Passwords do not match");
 
-  const auth = await Auth.isAuthExist(email);
-  if (!auth) throw new ApiError(status.NOT_FOUND, "User not found!");
-  if (!auth.isVerified)
-    throw new ApiError(status.FORBIDDEN, "Please complete OTP verification");
+  await checkVerificationCode(email, code);
 
   const hashedPassword = await hashPass(newPassword);
 
@@ -389,7 +387,6 @@ const resetPassword = async (payload: {
     {
       $set: { password: hashedPassword },
       $unset: {
-        isVerified: "",
         verificationCode: "",
         verificationCodeExpire: "",
         verificationAttempts: "",

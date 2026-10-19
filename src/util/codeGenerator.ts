@@ -1,7 +1,9 @@
-const codeGenerator = (time: number) => {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiredAt = Date.now() + time * 60 * 1000;
-  return { code, expiredAt };
-};
+import crypto from "crypto";
+
+// 6-digit OTP from a CSPRNG (Math.random is predictable) plus its expiry
+const codeGenerator = (minutes: number) => ({
+  code: crypto.randomInt(100000, 1000000).toString(),
+  expiredAt: Date.now() + minutes * 60 * 1000,
+});
 
 export = codeGenerator;

@@ -10,7 +10,6 @@ interface IAuth {
   email: string;
   password: string;
   role: string;
-  isVerified?: boolean;
   isBlocked?: boolean;
   isActive?: boolean;
   verificationCode?: string;
@@ -53,9 +52,6 @@ const AuthSchema = new Schema<IAuth, AuthModel>(
       type: String,
       enum: Object.values(EnumUserRole),
       required: true,
-    },
-    isVerified: {
-      type: Boolean,
     },
     isBlocked: {
       type: Boolean,
@@ -101,7 +97,6 @@ AuthSchema.statics.isAuthExist = async function (email: string) {
       role: 1,
       isActive: 1,
       isBlocked: 1,
-      isVerified: 1,
     },
   );
 };
