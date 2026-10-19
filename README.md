@@ -26,8 +26,8 @@ A production-oriented backend starter template built with **Express 5**, **TypeS
 
 ## Features
 
-- 🔐 **Full authentication lifecycle** — registration, email OTP activation (expiry + brute-force lockout), login, refresh token endpoint, forgot/reset/change password
-- 👥 **Role-based authorization** — `USER`, `DRIVER`, `ADMIN`, `SUPER_ADMIN` levels enforced by a single reusable `auth()` middleware that also re-checks blocked/active status per request; privileged accounts are created via a seeded SUPER_ADMIN, never self-registration
+- 🔐 **Full authentication lifecycle** — registration, email OTP activation (expiry + brute-force lockout, codes stored hashed), login, refresh token endpoint, forgot/reset/change password (password changes revoke every existing session)
+- 👥 **Role-based authorization** — `USER`, `ADMIN`, `SUPER_ADMIN` levels enforced by a single reusable `auth()` middleware that also re-checks blocked/active status and session validity per request; privileged accounts are created via a seeded SUPER_ADMIN, never self-registration
 - ✅ **Validation everywhere** — zod schemas for request bodies (`validateRequest`) and for the environment config (fail-fast boot); NoSQL-injection and regex-injection sanitization in the query builder
 - 🧱 **Modular monolith** — each domain (`auth`, `user`, `admin`, `chat`, `review`, `feedback`, `notification`, `manage`) is self-contained with its own model, controller, service, and routes
 - 💬 **Real-time chat & presence** — Socket.IO with JWT-authenticated handshakes; chat, online status, and live location updates sharing the same HTTP port
@@ -40,7 +40,7 @@ A production-oriented backend starter template built with **Express 5**, **TypeS
 - ⚡ **Module generator** — scaffold a new domain module (model, controller, service, routes) with one command
 - 🛡️ **Centralized error handling** — a single global handler normalizes Mongoose, Multer, JWT, Zod, and custom `ApiError` failures into one predictable JSON shape
 - 🧪 **Tests** — Vitest + Supertest + in-memory MongoDB suites for the auth flows and query builder
-- 📖 **API docs** — Swagger UI served at `/docs` (non-production) from `docs/openapi.yaml`; `/health` endpoint for load balancers
+- 🩺 **Health check** — `/health` endpoint reports DB connectivity and uptime, for load balancers
 
 ## Tech Stack
 
@@ -57,7 +57,6 @@ A production-oriented backend starter template built with **Express 5**, **TypeS
 | Uploads        | Multer (disk storage)                                              |
 | Scheduling     | node-cron                                                          |
 | Security       | helmet, express-rate-limit, CORS allow-list                        |
-| Payments       | Stripe SDK (pre-wired configuration)                               |
 | Logging        | Winston + winston-daily-rotate-file, morgan                        |
 | Testing        | Vitest, Supertest, mongodb-memory-server                           |
 | Dev experience | tsx (hot reload), rimraf                                           |
@@ -104,7 +103,6 @@ flowchart TD
     subgraph External
         DB[(MongoDB)]
         SMTP[SMTP / Gmail]
-        STRIPE[Stripe]
     end
 
     Client -->|REST| HTTP --> MW --> RL --> VAL --> AUTH --> UP --> Modules
@@ -112,7 +110,6 @@ flowchart TD
     Modules --> SVC
     SVC -->|Mongoose| DB
     SVC -->|OTP & reset emails| SMTP
-    SVC -.->|configured| STRIPE
     Modules --> GEH
     CRON --> DB
 ```
@@ -158,9 +155,10 @@ Key structural decisions:
 │   ├── app.ts                    # Express app assembly (middleware + routes)
 │   └── server.ts                 # Entry point: DB connect, listen, jobs, graceful shutdown
 ├── tests/                        # Vitest suites (auth flows, QueryBuilder) + helpers
-├── docs/                         # Extended technical documentation + openapi.yaml
+├── docs/                         # Review notes and the implementation plan
 ├── .env.example                  # Template for required environment variables
-├── eslint.config.mjs             # Flat ESLint config (TS + Prettier)
+├── .gitattributes                # Normalizes line endings to LF
+├── eslint.config.mjs             # Flat ESLint config (typescript-eslint recommended)
 └── tsconfig.json
 ```
 
@@ -177,7 +175,7 @@ Key structural decisions:
 ```bash
 # 1. Clone and install
 git clone <repository-url>
-cd server-setup-template-updated
+cd node-server-template
 npm install
 
 # 2. Configure environment
@@ -192,7 +190,7 @@ npm run seed:admin
 npm run dev
 ```
 
-The API is now available at `http://<BASE_URL>:<PORT>` (default `http://0.0.0.0:8001`). `GET /health` reports DB connectivity and uptime; interactive API docs are at `/docs` (non-production).
+The API is now available at `http://<BASE_URL>:<PORT>` (default `http://0.0.0.0:8001`). `GET /health` reports DB connectivity and uptime.
 
 ### Production build
 
@@ -205,23 +203,23 @@ npm start         # runs the compiled dist/server.js
 
 All variables are validated once at startup by the zod schema in `src/config/index.ts` — the app exits with a per-field error report if anything required is missing or malformed.
 
-| Variable                                     | Description                                 | Example                                   |
-| -------------------------------------------- | ------------------------------------------- | ----------------------------------------- |
-| `NODE_ENV`                                   | Runtime environment                         | `development`                             |
-| `BASE_URL`                                   | Host interface to bind                      | `0.0.0.0`                                 |
-| `PORT`                                       | HTTP + WebSocket port                       | `8001`                                    |
-| `MONGO_URL`                                  | MongoDB connection string                   | `mongodb://localhost:27017/appDB`         |
-| `BCRYPT_SALT_ROUNDS`                         | bcrypt cost factor                          | `12`                                      |
-| `JWT_SECRET`                                 | Access-token signing secret (min 32 chars)  | _(long random string)_                    |
-| `JWT_EXPIRES_IN`                             | Access-token lifetime                       | `15m`                                     |
-| `JWT_REFRESH_SECRET`                         | Refresh-token signing secret (min 32 chars) | _(long random string)_                    |
-| `JWT_REFRESH_EXPIRES_IN`                     | Refresh-token lifetime                      | `30d`                                     |
-| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` | Credentials for `npm run seed:admin`        | `admin@example.com` / _(strong password)_ |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SERVICE`   | SMTP transport settings                     | `smtp.gmail.com` / `587` / `gmail`        |
-| `SMTP_MAIL` / `SMTP_PASSWORD`                | Sender credentials                          | `example@gmail.com` / _(app password)_    |
-| `SERVICE_NAME`                               | Product name used in emails                 | `Mount Fuji`                              |
-| `STRIPE_SECRET_KEY`                          | Stripe API secret (optional)                | `sk_test_...`                             |
-| `EMAIL_TEMP_IMAGE`                           | Logo URL used in email templates            | _(image URL)_                             |
+| Variable                                     | Description                                  | Example                                   |
+| -------------------------------------------- | -------------------------------------------- | ----------------------------------------- |
+| `NODE_ENV`                                   | Runtime environment                          | `development`                             |
+| `BASE_URL`                                   | Host interface to bind                       | `0.0.0.0`                                 |
+| `PORT`                                       | HTTP + WebSocket port                        | `8001`                                    |
+| `MONGO_URL`                                  | MongoDB connection string                    | `mongodb://localhost:27017/appDB`         |
+| `BCRYPT_SALT_ROUNDS`                         | bcrypt cost factor                           | `12`                                      |
+| `JWT_SECRET`                                 | Access-token signing secret (min 32 chars)   | _(long random string)_                    |
+| `JWT_EXPIRES_IN`                             | Access-token lifetime                        | `15m`                                     |
+| `JWT_REFRESH_SECRET`                         | Refresh-token signing secret (min 32 chars)  | _(long random string)_                    |
+| `JWT_REFRESH_EXPIRES_IN`                     | Refresh-token lifetime                       | `30d`                                     |
+| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` | Credentials for `npm run seed:admin`         | `admin@example.com` / _(strong password)_ |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SERVICE`   | SMTP transport settings                      | `smtp.gmail.com` / `587` / `gmail`        |
+| `SMTP_MAIL` / `SMTP_PASSWORD`                | Sender credentials                           | `example@gmail.com` / _(app password)_    |
+| `SERVICE_NAME`                               | Product name used in emails                  | `Mount Fuji`                              |
+| `CORS_ORIGINS`                               | Comma-separated browser origins, exact match | `http://localhost:3000`                   |
+| `EMAIL_TEMP_IMAGE`                           | Logo URL used in email templates             | _(image URL)_                             |
 
 ## NPM Scripts
 
@@ -239,7 +237,9 @@ All variables are validated once at startup by the zod schema in `src/config/ind
 
 ## Authentication Flow
 
-Credentials live in the `Auth` collection; profile data lives in `User`/`Admin` linked by `authId`. New accounts stay inactive until the emailed 6-digit OTP (3-minute expiry, invalidated after 5 wrong attempts) is confirmed. Only `USER` accounts can self-register — admins are created by a seeded SUPER_ADMIN via `POST /admin/create-admin`. A cron job clears expired codes every minute as cleanup; expiry is enforced in the services themselves.
+Credentials live in the `Auth` collection; profile data lives in `User`/`Admin` linked by `authId`. New accounts stay inactive until the emailed 6-digit OTP (3-minute expiry, invalidated after 5 wrong attempts) is confirmed. Only an HMAC of each OTP is stored — the plaintext code only ever goes out in the email. Only `USER` accounts can self-register — admins are created by a seeded SUPER_ADMIN via `POST /admin/create-admin`. A cron job clears expired codes every minute as cleanup; expiry is enforced in the services themselves.
+
+Changing or resetting a password revokes every token issued before that moment (tracked via `passwordChangedAt`), so a compromised session can't outlive a password change.
 
 ```mermaid
 sequenceDiagram
@@ -274,10 +274,10 @@ sequenceDiagram
     note over C,M: Password Reset
     C->>API: POST /auth/forgot-password (email)
     API->>M: Send reset OTP email
-    C->>API: POST /auth/forget-pass-otp-verify (email, code)
-    API->>DB: Mark isVerified=true
-    C->>API: POST /auth/reset-password (email, newPassword)
-    API->>DB: Store new bcrypt hash, clear verification state
+    C->>API: POST /auth/forget-pass-otp-verify (email, code) [optional, UI-only]
+    API-->>C: code is valid (no state change)
+    C->>API: POST /auth/reset-password (email, code, newPassword)
+    API->>DB: Re-check the code, store new bcrypt hash, set passwordChangedAt
     end
 ```
 
@@ -301,19 +301,19 @@ All routes are mounted at the root path by `src/app/routes/index.ts`. 🔒 = req
 
 ### Auth — `/auth`
 
-All public auth endpoints are rate-limited (login 10/h; OTP send 3/15min; OTP verify 5/15min) and validated with zod schemas.
+All public auth endpoints are rate-limited and validated with zod schemas. Limits are per IP: login 10/hour; OTP-sending endpoints (`register`, `activation-code-resend`, `forgot-password`) share one budget of 3/15min; OTP-verifying endpoints (`activate-account`, `forget-pass-otp-verify`, `reset-password`) share 5/15min; `refresh-token` gets its own looser 60/15min.
 
-| Method | Endpoint                  | Access  | Description                                                   |
-| ------ | ------------------------- | ------- | ------------------------------------------------------------- |
-| POST   | `/register`               | Public  | Create a USER account; sends activation OTP email             |
-| POST   | `/login`                  | Public  | Login; returns access + refresh tokens                        |
-| POST   | `/refresh-token`          | Public  | Exchange a refresh token (body or cookie) for an access token |
-| POST   | `/activate-account`       | Public  | Verify OTP (expiry + attempt cap); returns JWT pair           |
-| POST   | `/activation-code-resend` | Public  | Re-issue activation OTP                                       |
-| POST   | `/forgot-password`        | Public  | Send password-reset OTP                                       |
-| POST   | `/forget-pass-otp-verify` | Public  | Verify reset OTP                                              |
-| POST   | `/reset-password`         | Public  | Set new password after OTP verification                       |
-| PATCH  | `/change-password`        | 🔒 user | Change password with old-password check                       |
+| Method | Endpoint                  | Access  | Description                                                      |
+| ------ | ------------------------- | ------- | ---------------------------------------------------------------- |
+| POST   | `/register`               | Public  | Create a USER account; sends activation OTP email                |
+| POST   | `/login`                  | Public  | Login; returns access + refresh tokens                           |
+| POST   | `/refresh-token`          | Public  | Exchange a refresh token (body or cookie) for an access token    |
+| POST   | `/activate-account`       | Public  | Verify OTP (expiry + attempt cap); returns JWT pair              |
+| POST   | `/activation-code-resend` | Public  | Re-issue activation OTP                                          |
+| POST   | `/forgot-password`        | Public  | Send password-reset OTP                                          |
+| POST   | `/forget-pass-otp-verify` | Public  | Check a reset OTP is valid (optional; no state change)           |
+| POST   | `/reset-password`         | Public  | Set new password; requires the OTP code again                    |
+| PATCH  | `/change-password`        | 🔒 user | Change password with old-password check; signs out every session |
 
 ### User — `/user` &nbsp;·&nbsp; Admin — `/admin`
 
@@ -335,32 +335,32 @@ All public auth endpoints are rate-limited (login 10/h; OTP send 3/15min; OTP ve
 
 ### Notification — `/notification`
 
-| Method | Endpoint                 | Access  | Description                        |
-| ------ | ------------------------ | ------- | ---------------------------------- |
-| GET    | `/get-notification`      | 🔒 user | Get a single notification          |
-| GET    | `/get-all-notifications` | 🔒 user | List own notifications (paginated) |
-| PATCH  | `/update-as-mark-unread` | 🔒 user | Toggle read/unread                 |
-| DELETE | `/delete-notification`   | 🔒 user | Delete a notification              |
+| Method | Endpoint                 | Access  | Description                                                              |
+| ------ | ------------------------ | ------- | ------------------------------------------------------------------------ |
+| GET    | `/get-notification`      | 🔒 user | Get own notification (admins share one admin inbox)                      |
+| GET    | `/get-all-notifications` | 🔒 user | List own notifications (paginated; SUPER_ADMIN gets the admin inbox too) |
+| PATCH  | `/update-as-mark-unread` | 🔒 user | Toggle read/unread                                                       |
+| DELETE | `/delete-notification`   | 🔒 user | Delete own notification (admins share one admin inbox)                   |
 
 ### Review — `/review`
 
-| Method | Endpoint           | Access  | Description                         |
-| ------ | ------------------ | ------- | ----------------------------------- |
-| POST   | `/post-review`     | 🔒 user | Create review                       |
-| GET    | `/get-review`      | 🔒 user | Get single review                   |
-| GET    | `/get-all-reviews` | 🔒 user | List reviews (search/sort/paginate) |
-| PATCH  | `/update-review`   | 🔒 user | Update own review                   |
-| DELETE | `/delete-review`   | 🔒 user | Delete review                       |
+| Method | Endpoint           | Access  | Description                                                 |
+| ------ | ------------------ | ------- | ----------------------------------------------------------- |
+| POST   | `/post-review`     | 🔒 user | Create review                                               |
+| GET    | `/get-review`      | 🔒 user | Get own review (any review for admins)                      |
+| GET    | `/get-all-reviews` | 🔒 user | List reviews (search/sort/paginate; all reviews for admins) |
+| PATCH  | `/update-review`   | 🔒 user | Update own review only — not even admins can edit another's |
+| DELETE | `/delete-review`   | 🔒 user | Delete own review (any review for admins)                   |
 
 ### Feedback — `/feedback`
 
-| Method | Endpoint                      | Access                 | Description         |
-| ------ | ----------------------------- | ---------------------- | ------------------- |
-| POST   | `/post-feedback`              | Public (optional auth) | Submit feedback     |
-| GET    | `/get-feedback`               | 🔒 user                | Get single feedback |
-| GET    | `/get-all-feedbacks`          | 🔒 user                | List feedback       |
-| PATCH  | `/update-feedback-with-reply` | 🔒 admin               | Reply to feedback   |
-| DELETE | `/delete-feedback`            | 🔒 user                | Delete feedback     |
+| Method | Endpoint                      | Access                 | Description                                              |
+| ------ | ----------------------------- | ---------------------- | -------------------------------------------------------- |
+| POST   | `/post-feedback`              | Public (optional auth) | Submit feedback; anonymous submissions need name + email |
+| GET    | `/get-feedback`               | 🔒 user                | Get own feedback (any feedback for admins)               |
+| GET    | `/get-all-feedbacks`          | 🔒 user                | List feedback (all feedback for admins)                  |
+| PATCH  | `/update-feedback-with-reply` | 🔒 admin               | Reply to feedback                                        |
+| DELETE | `/delete-feedback`            | 🔒 user                | Delete own feedback (any feedback for admins)            |
 
 ### Manage (CMS) — `/manage`
 
@@ -387,11 +387,11 @@ const socket = io("http://localhost:8001", {
 | --------------------------- | --------------- | --------------------------------- | ---------------------------------------------------------------- |
 | `connection` / `disconnect` | —               | `{ auth: { token } }` handshake   | Presence tracked automatically (`isOnline` on the User document) |
 | `online_status`             | server → client | `{ isOnline }`                    | Confirmation of presence change                                  |
-| `update_location`           | bidirectional   | `{ lat, long }`                   | Persists GeoJSON coordinates and broadcasts them                 |
+| `update_location`           | client → server | `{ lat, long }`                   | Persists GeoJSON coordinates; acknowledges the sender only       |
 | `send_message`              | client → server | `{ chatId, receiverId, message }` | Persists the message and emits it to the receiver's room         |
-| `socket_error`              | server → client | error envelope                    | Emitted by `socketCatchAsync` on any handler failure             |
+| `socket_error`              | server → client | error envelope                    | Emitted by `emitError` on a validation or not-found failure      |
 
-Socket handlers mirror the HTTP conventions: `socketCatchAsync` wraps every handler, `emitResult`/`emitError` produce the same response envelope the REST API uses.
+Socket handlers mirror the HTTP conventions: `emitResult`/`emitError` produce the same response envelope the REST API uses. `socketCatchAsync` wraps every handler and only logs unexpected failures — it does not emit anything to the client.
 
 ## Data Model
 
@@ -411,14 +411,14 @@ erDiagram
         string name
         string email UK
         string password "bcrypt hash, select:false"
-        string role "USER | DRIVER | ADMIN | SUPER_ADMIN"
+        string role "USER | ADMIN | SUPER_ADMIN"
         boolean isActive
         boolean isBlocked
-        boolean isVerified
-        string activationCode "OTP (temp)"
+        date passwordChangedAt "tokens issued before this are revoked"
+        string activationCode "HMAC of OTP (temp)"
         date activationCodeExpire
         number activationAttempts "brute-force cap"
-        string verificationCode "reset OTP (temp)"
+        string verificationCode "HMAC of reset OTP (temp)"
         date verificationCodeExpire
         number verificationAttempts "brute-force cap"
     }
@@ -489,11 +489,11 @@ const [meta, reviews] = await Promise.all([
 ]);
 ```
 
-Both `search()` and `filter()` are injection-safe: search terms have regex metacharacters escaped (no ReDoS / regex injection), and `filter()` drops non-string values and `$`/dotted keys, so `?age[$ne]=0`-style NoSQL operator injection is neutralized (the app additionally uses Express's `simple` query parser).
+Both `search()` and `filter()` are injection-safe: search terms have regex metacharacters escaped (no ReDoS / regex injection), and `filter()` drops non-string values and `$`/dotted keys, so `?age[$ne]=0`-style NoSQL operator injection is neutralized (the app additionally uses Express's `simple` query parser). `limit` is capped at 100 regardless of what the client requests, so a query can't dump an entire collection in one page.
 
 ## Error Handling
 
-Request bodies are validated before controllers run via the `validateRequest(zodSchema)` middleware (see `auth.validation.ts` for the pattern). All failures funnel into `globalErrorHandler`, which recognizes Mongoose `ValidationError`/`CastError`, duplicate-key errors, Multer errors, Zod errors, and the project's `ApiError` class, then responds with a stable contract:
+Every route validates its input with a zod schema via the `validateRequest(zodSchema)` middleware (see `auth.validation.ts` for the pattern) — bodies, queries and params are all checked before a controller runs. All failures funnel into `globalErrorHandler`, which recognizes Mongoose `ValidationError`/`CastError`, duplicate-key errors, Multer errors, Zod errors, and the project's `ApiError` class, then responds with a stable contract. In production, an unexpected 5xx (anything that isn't a deliberate `ApiError`) has its message replaced with `"Something went wrong!"` so internals (Mongo, bcrypt, stack traces) never reach the client — the full error is still written to the error log:
 
 ```json
 {
@@ -553,23 +553,19 @@ This generates `Booking.ts` (model), `booking.controller.ts`, `booking.service.t
 
 - **TypeScript** across the entire codebase (fully migrated from JavaScript)
 - **ESLint flat config** with `typescript-eslint` recommended rules
-- **Prettier** enforced via `prettier:check`, with `lint-staged` configured for pre-commit fixing
+- **Prettier** enforced via `prettier:check`
 - **Vitest + Supertest + mongodb-memory-server** — the full auth lifecycle (register → activate → login → refresh → change password), OTP brute-force lockout, and QueryBuilder injection-safety are covered by tests that run against a real in-memory MongoDB
 
 ## Further Documentation
 
 Extended documentation lives in [`docs/`](./docs):
 
-| Document                                                                                                    | Contents                                                        |
-| ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| [`api/`](./docs/api/README.md)                                                                              | **Full API reference** — per-module endpoint docs with examples |
-| [`api/postman_collection.json`](./docs/api/postman_collection.json)                                         | Postman collection with auto token capture — import and go      |
-| [`project_technical_documentation.md`](./docs/project_technical_documentation.md)                           | Deep technical overview for developers/AI assistants            |
-| [`migration_guide.md`](./docs/migration_guide.md) / [`migration_analysis.md`](./docs/migration_analysis.md) | JavaScript → TypeScript migration notes                         |
-| [`issues_and_improvements.md`](./docs/issues_and_improvements.md)                                           | Known issues, security review findings, and improvement roadmap |
-| [`implementation_plan.md`](./docs/implementation_plan.md)                                                   | Phased, step-by-step plan for executing the improvement roadmap |
-| [`openapi.yaml`](./docs/openapi.yaml)                                                                       | OpenAPI 3 spec, served as Swagger UI at `/docs`                 |
-| [`template_review_and_improvements.md`](./docs/template_review_and_improvements.md)                         | Earlier template review                                         |
+| Document                                                                                  | Contents                                                         |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [`issues_and_improvements.v1.md`](./docs/issues_and_improvements.v1.md)                   | First full-codebase security/issue review (now remediated)       |
+| [`template_review_and_improvements.v1.md`](./docs/template_review_and_improvements.v1.md) | Earlier template review                                          |
+| [`issues_and_improvements.v2.md`](./docs/issues_and_improvements.v2.md)                   | Follow-up review verifying the v1 fixes and listing new findings |
+| [`implementation_plan.md`](./docs/implementation_plan.md)                                 | Phased, step-by-step plan that implemented the v2 findings       |
 
 ---
 
