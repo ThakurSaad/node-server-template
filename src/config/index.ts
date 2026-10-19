@@ -35,6 +35,19 @@ const envSchema = z.object({
   SUPER_ADMIN_EMAIL: z.string().optional(),
   SUPER_ADMIN_PASSWORD: z.string().optional(),
 
+  // Comma-separated browser origins allowed by CORS (exact match), e.g.
+  // https://app.example.com,http://localhost:3000
+  CORS_ORIGINS: z
+    .string()
+    .default("")
+    .transform((value) =>
+      value
+        .split(",")
+        // browsers send Origin without a trailing slash
+        .map((origin) => origin.trim().replace(/\/+$/, ""))
+        .filter(Boolean),
+    ),
+
   STRIPE_SECRET_KEY: z.string().optional(),
 
   CLOUD_NAME: z.string().optional(),
@@ -97,6 +110,7 @@ const config = {
     email: env.SUPER_ADMIN_EMAIL,
     password: env.SUPER_ADMIN_PASSWORD,
   },
+  cors_origins: env.CORS_ORIGINS,
   variables: {
     email_temp_image: env.EMAIL_TEMP_IMAGE,
     email_temp_text_secondary_color: env.EMAIL_TEMP_TEXT_SECONDARY_COLOR,

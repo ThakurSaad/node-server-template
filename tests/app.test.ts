@@ -100,6 +100,26 @@ describe("auth middleware", () => {
   });
 });
 
+describe("CORS", () => {
+  it("allows exactly the configured origins", async () => {
+    const res = await request(app)
+      .get("/health")
+      .set("Origin", "http://allowed.test");
+
+    expect(res.headers["access-control-allow-origin"]).toBe(
+      "http://allowed.test",
+    );
+  });
+
+  it("rejects origins that only start like a trusted one", async () => {
+    const res = await request(app)
+      .get("/health")
+      .set("Origin", "http://10.10.20.evil.com");
+
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("file uploads", () => {
   it("rejects a disallowed upload type with 400", async () => {
     const account = await createAccount("USER");
