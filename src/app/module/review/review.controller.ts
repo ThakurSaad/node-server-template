@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { ReviewService } from "./review.service";
 import sendResponse from "../../../util/sendResponse";
 import catchAsync from "../../../util/catchAsync";
-import { QueryParams } from "../../../builder/queryBuilder";
+import { QueryParams } from "../../../types/common.types";
 import ApiError from "../../../error/ApiError";
 
 const postReview = catchAsync(async (req: Request, res: Response) => {

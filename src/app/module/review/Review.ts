@@ -1,6 +1,6 @@
 import { Schema, model, Types } from "mongoose";
 
-export interface IReview {
+interface IReview {
   user: Types.ObjectId;
   rating: number;
   review: string;
@@ -31,4 +31,4 @@ const reviewSchema = new Schema<IReview>(
 
 const Review = model<IReview>("Review", reviewSchema);
 
-export default Review;
+export = Review;

@@ -8,14 +8,16 @@ import { Schema, model } from "mongoose";
 
 const ${moduleNameLowerCase}Schema = new Schema(
   {
-    
+
   },
   {
     timestamps: true,
   }
 );
 
-export const ${moduleName} = model("${moduleName}", ${moduleNameLowerCase}Schema);
+const ${moduleName} = model("${moduleName}", ${moduleNameLowerCase}Schema);
+
+export = ${moduleName};
 `;
 };
 
@@ -24,11 +26,15 @@ export const controllerTemplate = (moduleName: string): string => {
 
   return `
 import { Request, Response } from "express";
-import ${moduleName}Service from "./${moduleNameLowerCase}.service";
+import { ${moduleName}Service } from "./${moduleNameLowerCase}.service";
 import sendResponse from "../../../util/sendResponse";
 import catchAsync from "../../../util/catchAsync";
+import ApiError from "../../../error/ApiError";
+import { status } from "../../../util/httpStatus";
+import { QueryParams } from "../../../types/common.types";
 
 const create${moduleName} = catchAsync(async (req: Request, res: Response) => {
+  if (!req.user) throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
   const result = await ${moduleName}Service.create${moduleName}(req.user, req.body);
 
   sendResponse(res, {
@@ -40,6 +46,7 @@ const create${moduleName} = catchAsync(async (req: Request, res: Response) => {
 });
 
 const get${moduleName} = catchAsync(async (req: Request, res: Response) => {
+  if (!req.user) throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
   const result = await ${moduleName}Service.get${moduleName}(req.user, req.query);
 
   sendResponse(res, {
@@ -51,7 +58,11 @@ const get${moduleName} = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAll${moduleName}s = catchAsync(async (req: Request, res: Response) => {
-  const result = await ${moduleName}Service.getAll${moduleName}s(req.user, req.query);
+  if (!req.user) throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
+  const result = await ${moduleName}Service.getAll${moduleName}s(
+    req.user,
+    req.query as QueryParams,
+  );
 
   sendResponse(res, {
     statusCode: 200,
@@ -62,6 +73,7 @@ const getAll${moduleName}s = catchAsync(async (req: Request, res: Response) => {
 });
 
 const update${moduleName} = catchAsync(async (req: Request, res: Response) => {
+  if (!req.user) throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
   const result = await ${moduleName}Service.update${moduleName}(req.user, req.body);
 
   sendResponse(res, {
@@ -73,6 +85,7 @@ const update${moduleName} = catchAsync(async (req: Request, res: Response) => {
 });
 
 const delete${moduleName} = catchAsync(async (req: Request, res: Response) => {
+  if (!req.user) throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
   const result = await ${moduleName}Service.delete${moduleName}(req.user, req.body);
 
   sendResponse(res, {
@@ -91,7 +104,7 @@ const ${moduleName}Controller = {
   delete${moduleName},
 };
 
-export default ${moduleName}Controller;
+export { ${moduleName}Controller };
 `;
 };
 
@@ -102,7 +115,7 @@ export const routesTemplate = (moduleName: string): string => {
 import express from "express";
 import auth from "../../middleware/auth";
 import config from "../../../config";
-import ${moduleName}Controller from "./${moduleNameLowerCase}.controller";
+import { ${moduleName}Controller } from "./${moduleNameLowerCase}.controller";
 
 const router = express.Router();
 
@@ -110,30 +123,30 @@ router
   .post(
     "/post-${moduleNameLowerCase}",
     auth(config.auth_level.user),
-    ${moduleName}Controller.create${moduleName}
+    ${moduleName}Controller.create${moduleName},
   )
   .get(
     "/get-${moduleNameLowerCase}",
     auth(config.auth_level.user),
-    ${moduleName}Controller.get${moduleName}
+    ${moduleName}Controller.get${moduleName},
   )
   .get(
     "/get-all-${moduleNameLowerCase}s",
     auth(config.auth_level.user),
-    ${moduleName}Controller.getAll${moduleName}s
+    ${moduleName}Controller.getAll${moduleName}s,
   )
   .patch(
     "/update-${moduleNameLowerCase}",
     auth(config.auth_level.user),
-    ${moduleName}Controller.update${moduleName}
+    ${moduleName}Controller.update${moduleName},
   )
   .delete(
     "/delete-${moduleNameLowerCase}",
     auth(config.auth_level.user),
-    ${moduleName}Controller.delete${moduleName}
+    ${moduleName}Controller.delete${moduleName},
   );
 
-export default router;
+export = router;
 `;
 };
 
@@ -141,22 +154,26 @@ export const serviceTemplate = (moduleName: string): string => {
   const moduleNameLowerCase = moduleName.toLowerCase();
 
   return `
-import status from "./httpStatus";
-import { ${moduleName} } from "./${moduleName}";
+import { status } from "../../../util/httpStatus";
+import ${moduleName} from "./${moduleName}";
 import QueryBuilder from "../../../builder/queryBuilder";
 import ApiError from "../../../error/ApiError";
 import validateFields from "../../../util/validateFields";
+import { AuthUserPayload } from "../../../types/auth.types";
+import { QueryParams } from "../../../types/common.types";
+
+// TODO: zod schema per route (see review.validation.ts) and owner filter (see review.service.ts)
 
 const create${moduleName} = async (
-  userData: any,
-  payload: any
+  _userData: AuthUserPayload,
+  _payload: Record<string, unknown>,
 ) => {
-  // Add your logic here
+  throw new ApiError(status.NOT_IMPLEMENTED, "Not implemented yet");
 };
 
 const get${moduleName} = async (
-  userData: any,
-  query: any
+  _userData: AuthUserPayload,
+  query: Record<string, unknown>,
 ) => {
   validateFields(query, ["${moduleNameLowerCase}Id"]);
 
@@ -174,12 +191,12 @@ const get${moduleName} = async (
 };
 
 const getAll${moduleName}s = async (
-  userData: any,
-  query: any
+  _userData: AuthUserPayload,
+  query: QueryParams,
 ) => {
   const ${moduleNameLowerCase}Query = new QueryBuilder(
     ${moduleName}.find({}).lean(),
-    query
+    query,
   )
     .search([])
     .filter()
@@ -199,15 +216,15 @@ const getAll${moduleName}s = async (
 };
 
 const update${moduleName} = async (
-  userData: any,
-  payload: any
+  _userData: AuthUserPayload,
+  _payload: Record<string, unknown>,
 ) => {
-  // Add your logic here
+  throw new ApiError(status.NOT_IMPLEMENTED, "Not implemented yet");
 };
 
 const delete${moduleName} = async (
-  userData: any,
-  payload: any
+  _userData: AuthUserPayload,
+  payload: Record<string, unknown>,
 ) => {
   validateFields(payload, ["${moduleNameLowerCase}Id"]);
 
@@ -230,6 +247,6 @@ const ${moduleName}Service = {
   delete${moduleName},
 };
 
-export default ${moduleName}Service;
+export { ${moduleName}Service };
 `;
 };

@@ -25,8 +25,4 @@ const createLimiter = ({
       }),
   });
 
-// Default limiter kept for existing consumers (e.g. /auth/login)
-const limiter = createLimiter();
-
-export { createLimiter };
-export default limiter;
+export = createLimiter;

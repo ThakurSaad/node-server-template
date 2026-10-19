@@ -1,5 +1,6 @@
 import { status } from "../../../util/httpStatus";
-import QueryBuilder, { QueryParams } from "../../../builder/queryBuilder";
+import QueryBuilder from "../../../builder/queryBuilder";
+import { QueryParams } from "../../../types/common.types";
 import ApiError from "../../../error/ApiError";
 import isAdmin from "../../../util/isAdmin";
 import AdminNotification from "./AdminNotification";

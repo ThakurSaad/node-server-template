@@ -1,6 +1,7 @@
 import { status } from "../../../util/httpStatus";
 import ApiError from "../../../error/ApiError";
-import QueryBuilder, { QueryParams } from "../../../builder/queryBuilder";
+import QueryBuilder from "../../../builder/queryBuilder";
+import { QueryParams } from "../../../types/common.types";
 import isAdmin from "../../../util/isAdmin";
 import Review from "./Review";
 

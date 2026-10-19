@@ -4,10 +4,12 @@ import validateRequest from "../../middleware/validateRequest";
 import { AuthController } from "../auth/auth.controller";
 import AuthValidation from "./auth.validation";
 import config from "../../../config";
-import limiter, { createLimiter } from "../../middleware/limiter";
+import createLimiter from "../../middleware/limiter";
 
 const router = express.Router();
 
+// Was the shared default limiter; kept at the same budget for /login
+const loginLimiter = createLimiter({ windowMs: 60 * 60 * 1000, limit: 10 });
 // OTP endpoints get tighter limits: sending codes is costlier than verifying
 const otpSendLimiter = createLimiter({ windowMs: 15 * 60 * 1000, limit: 3 });
 const otpVerifyLimiter = createLimiter({ windowMs: 15 * 60 * 1000, limit: 5 });
@@ -27,7 +29,7 @@ router
   )
   .post(
     "/login",
-    limiter,
+    loginLimiter,
     validateRequest(AuthValidation.login),
     AuthController.loginAccount,
   )

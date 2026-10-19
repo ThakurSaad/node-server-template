@@ -1,6 +1,6 @@
 import { Schema, model, Types } from "mongoose";
 
-export interface IFeedback {
+interface IFeedback {
   user?: Types.ObjectId;
   name: string;
   email: string;
@@ -37,4 +37,4 @@ const feedbackSchema = new Schema<IFeedback>(
 
 const Feedback = model<IFeedback>("Feedback", feedbackSchema);
 
-export default Feedback;
+export = Feedback;

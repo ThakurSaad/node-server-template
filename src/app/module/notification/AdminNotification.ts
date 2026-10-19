@@ -26,4 +26,4 @@ const AdminNotification = model<IAdminNotification>(
   adminNotificationSchema,
 );
 
-export default AdminNotification;
+export = AdminNotification;

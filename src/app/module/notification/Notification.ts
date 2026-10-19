@@ -31,4 +31,4 @@ notificationSchema.index({ toId: 1, isRead: 1 });
 
 const Notification = model<INotification>("Notification", notificationSchema);
 
-export default Notification;
+export = Notification;
