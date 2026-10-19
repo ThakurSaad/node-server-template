@@ -21,7 +21,7 @@ const upsertDoc = async (
   Model: typeof TermsConditions,
   payload: object,
   updatedMessage: string,
-): Promise<UpsertResult | unknown> => {
+): Promise<UpsertResult> => {
   const exists = await Model.findOne();
 
   if (exists) {
@@ -32,7 +32,7 @@ const upsertDoc = async (
     return { message: updatedMessage, result };
   }
 
-  return await Model.create(payload);
+  return { message: "Successful", result: await Model.create(payload) };
 };
 
 const addTermsConditions = (payload: object) =>

@@ -9,6 +9,9 @@ class QueryBuilder<T> {
 
   // query holds the parsed URL query parameters (e.g. req.query)
   query: QueryParams;
+  // any[] on purpose: accepts lean()/populate() result shapes while T is
+  // still inferred from the document type (unknown[]/object[] fail with TS2322)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(modelQuery: Query<any[], T>, query: QueryParams) {
     this.modelQuery = modelQuery;
     this.query = query;
