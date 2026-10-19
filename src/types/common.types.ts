@@ -6,5 +6,4 @@ export interface ApiResponse<T = unknown> {
   message?: string | null;
   meta?: Record<string, unknown> | PaginationMeta;
   data?: T | null;
-  activationToken?: string | null;
 }

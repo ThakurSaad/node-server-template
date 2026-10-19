@@ -48,11 +48,7 @@ const envSchema = z.object({
         .filter(Boolean),
     ),
 
-  STRIPE_SECRET_KEY: z.string().optional(),
-
   CLOUD_NAME: z.string().optional(),
-  API_KEY: z.string().optional(),
-  API_SECRET: z.string().optional(),
   CLOUDINARY_URL: z.string().optional(),
 
   EMAIL_TEMP_IMAGE: z.string().optional(),
@@ -99,12 +95,7 @@ const config = {
   },
   cloudinary: {
     cloud_name: env.CLOUD_NAME,
-    api_key: env.API_KEY,
-    api_secret: env.API_SECRET,
     cloudinary_url: env.CLOUDINARY_URL,
-  },
-  stripe: {
-    stripe_secret_key: env.STRIPE_SECRET_KEY,
   },
   super_admin: {
     email: env.SUPER_ADMIN_EMAIL,

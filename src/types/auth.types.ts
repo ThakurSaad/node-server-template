@@ -1,4 +1,4 @@
-export type AppRole = "USER" | "DRIVER" | "ADMIN" | "SUPER_ADMIN";
+export type AppRole = "USER" | "ADMIN" | "SUPER_ADMIN";
 
 export interface AuthUserPayload {
   authId: string;

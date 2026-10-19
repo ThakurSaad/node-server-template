@@ -3,7 +3,6 @@ import ApiError from "../../../error/ApiError";
 import Auth from "../auth/Auth";
 import Admin from "./Admin";
 import unlinkFile from "../../../util/unlinkFile";
-import deleteFalsyField from "../../../util/deleteFalsyField";
 import { EnumUserRole } from "../../../util/enum";
 import { Request } from "express";
 import { AuthUserPayload } from "../../../types/auth.types";
@@ -53,7 +52,6 @@ const updateProfile = async (req: Request) => {
     ...(data.name && { name: data.name }),
   };
 
-  deleteFalsyField(updatedData);
   const existingUser = await Admin.findById(userId).lean();
 
   let hasNewImage = false;

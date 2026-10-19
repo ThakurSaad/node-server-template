@@ -29,19 +29,6 @@ const getFeedback = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const getMyFeedback = catchAsync(async (req: Request, res: Response) => {
-  if (!req.user) {
-    throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
-  }
-  const result = await FeedbackService.getMyFeedback(req.user);
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Feedback retrieved",
-    data: result,
-  });
-});
-
 const getAllFeedbacks = catchAsync(async (req: Request, res: Response) => {
   if (!req.user) {
     throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
@@ -92,7 +79,6 @@ const deleteFeedback = catchAsync(async (req: Request, res: Response) => {
 const FeedbackController = {
   postFeedback,
   getFeedback,
-  getMyFeedback,
   getAllFeedbacks,
   updateFeedbackWithReply,
   deleteFeedback,

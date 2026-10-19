@@ -79,19 +79,6 @@ const getFeedback = async (
   return feedback;
 };
 
-const getMyFeedback = async (userData: UserData) => {
-  const { userId } = userData;
-
-  const feedback = await Feedback.find({ user: userId });
-  if (!feedback.length)
-    throw new ApiError(status.NOT_FOUND, "Feedback not found");
-
-  return {
-    count: feedback.length,
-    feedback,
-  };
-};
-
 const getAllFeedbacks = async (userData: UserData, query: QueryParams) => {
   const queryObj = isAdmin(userData.role) ? {} : { user: userData.userId };
 
@@ -150,7 +137,6 @@ const deleteFeedback = async (userData: UserData, payload: FeedbackPayload) => {
 const FeedbackService = {
   postFeedback,
   getFeedback,
-  getMyFeedback,
   getAllFeedbacks,
   updateFeedbackWithReply,
   deleteFeedback,
