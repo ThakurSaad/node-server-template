@@ -7,10 +7,7 @@ import { QueryParams } from "../../../builder/queryBuilder";
 import ApiError from "../../../error/ApiError";
 
 const postFeedback = catchAsync(async (req: Request, res: Response) => {
-  if (!req.user) {
-    throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
-  }
-  const result = await FeedbackService.postFeedback(req.user, req.body);
+  const result = await FeedbackService.postFeedback(req.user ?? null, req.body);
   sendResponse(res, {
     statusCode: 200,
     success: true,

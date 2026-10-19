@@ -71,15 +71,13 @@ const getProfile = async (userData: AuthUserPayload) => {
   return result;
 };
 
-export const deleteMyAccount = async (payload: {
-  email: string;
-  password: string;
-}) => {
-  const { email, password } = payload;
-
+export const deleteMyAccount = async (
+  userData: AuthUserPayload,
+  payload: { password: string },
+) => {
   const [auth, user] = await Promise.all([
-    Auth.findOne({ email }).select("+password").lean(),
-    User.findOne({ email }).lean(),
+    Auth.findById(userData.authId).select("+password").lean(),
+    User.findById(userData.userId).lean(),
   ]);
 
   if (!auth || !user) {
@@ -87,20 +85,20 @@ export const deleteMyAccount = async (payload: {
   }
 
   if (
-    auth.password &&
-    !(await Auth.isPasswordMatched(password, auth.password))
+    !auth.password ||
+    !(await Auth.isPasswordMatched(payload.password, auth.password))
   ) {
     throw new ApiError(status.FORBIDDEN, "Password is incorrect");
-  }
-
-  if (user.profile_image) {
-    await unlinkFile(user.profile_image);
   }
 
   await Promise.all([
     Auth.deleteOne({ _id: auth._id }),
     User.deleteOne({ _id: user._id }),
   ]);
+
+  if (user.profile_image) {
+    await unlinkFile(user.profile_image);
+  }
 };
 
 const UserService = {

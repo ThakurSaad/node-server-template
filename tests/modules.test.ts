@@ -240,4 +240,106 @@ describe("feedback ownership", () => {
       .query({ feedbackId });
     expect(superAdminRes.status).toBe(200);
   });
+
+  it("accepts anonymous feedback only with name and email", async () => {
+    const withDetails = await request(app)
+      .post("/feedback/post-feedback")
+      .send({
+        feedback: "Great service",
+        name: "Anon",
+        email: "anon@example.com",
+      });
+    expect(withDetails.status).toBe(200);
+
+    const missingName = await request(app)
+      .post("/feedback/post-feedback")
+      .send({ feedback: "Great service", email: "anon2@example.com" });
+    expect(missingName.status).toBe(400);
+  });
+});
+
+describe("delete account", () => {
+  it("deletes the caller, never the account named in the body", async () => {
+    const caller = await createAccount("USER");
+    const victim = await createAccount("USER");
+
+    const res = await request(app)
+      .delete("/user/delete-account")
+      .set("Authorization", `Bearer ${caller.token}`)
+      .send({ email: victim.email, password: caller.password });
+
+    expect(res.status).toBe(200);
+    expect(await User.findById(caller.userId)).toBeNull();
+    expect(await User.findById(victim.userId)).not.toBeNull();
+  });
+
+  it("without a password is a 400, not a 500", async () => {
+    const caller = await createAccount("USER");
+
+    const res = await request(app)
+      .delete("/user/delete-account")
+      .set("Authorization", `Bearer ${caller.token}`)
+      .send({});
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("notification input validation", () => {
+  it("rejects query operators in ids instead of matching an arbitrary document", async () => {
+    const owner = await createAccount("USER");
+    await Notification.create({ toId: owner.userId, title: "t", message: "m" });
+    const before = await Notification.countDocuments();
+
+    const res = await request(app)
+      .delete("/notification/delete-notification")
+      .set("Authorization", `Bearer ${owner.token}`)
+      .send({ notificationId: { $ne: null } });
+
+    expect(res.status).toBe(400);
+    expect(await Notification.countDocuments()).toBe(before);
+  });
+
+  it("validates isRead and is idempotent", async () => {
+    const owner = await createAccount("USER");
+    await Notification.create({ toId: owner.userId, title: "t", message: "m" });
+
+    const missingField = await request(app)
+      .patch("/notification/update-as-mark-unread")
+      .set("Authorization", `Bearer ${owner.token}`)
+      .send({});
+    expect(missingField.status).toBe(400);
+
+    const first = await request(app)
+      .patch("/notification/update-as-mark-unread")
+      .set("Authorization", `Bearer ${owner.token}`)
+      .send({ isRead: true });
+    expect(first.status).toBe(200);
+
+    const second = await request(app)
+      .patch("/notification/update-as-mark-unread")
+      .set("Authorization", `Bearer ${owner.token}`)
+      .send({ isRead: true });
+    expect(second.status).toBe(200);
+  });
+});
+
+describe("post review", () => {
+  it("stores a review owned by the caller", async () => {
+    const author = await createAccount("USER");
+
+    const res = await request(app)
+      .post("/review/post-review")
+      .set("Authorization", `Bearer ${author.token}`)
+      .send({ rating: 5, review: "Loved it" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.user).toBe(author.userId);
+
+    const invalid = await request(app)
+      .post("/review/post-review")
+      .set("Authorization", `Bearer ${author.token}`)
+      .send({ rating: 6, review: "too high" });
+    expect(invalid.status).toBe(400);
+  });
 });

@@ -1,7 +1,6 @@
 import { status } from "../../../util/httpStatus";
 import ApiError from "../../../error/ApiError";
 import QueryBuilder, { QueryParams } from "../../../builder/queryBuilder";
-import validateFields from "../../../util/validateFields";
 import isAdmin from "../../../util/isAdmin";
 import Review from "./Review";
 
@@ -10,7 +9,15 @@ interface UserData {
   role: string;
 }
 
-const postReview = async () => {};
+const postReview = async (
+  userData: UserData,
+  payload: { rating: number; review: string },
+) =>
+  Review.create({
+    user: userData.userId,
+    rating: payload.rating,
+    review: payload.review,
+  });
 
 const getAllReviews = async (userData: UserData, query: QueryParams) => {
   const queryObj = isAdmin(userData.role) ? {} : { user: userData.userId };
@@ -36,8 +43,6 @@ const getAllReviews = async (userData: UserData, query: QueryParams) => {
 };
 
 const getReview = async (userData: UserData, query: { reviewId?: string }) => {
-  validateFields(query, ["reviewId"]);
-
   // Users reach only their own review; admins can read any
   const filter = isAdmin(userData.role)
     ? { _id: query.reviewId }
@@ -53,8 +58,6 @@ const updateReview = async (
   userData: UserData,
   payload: Record<string, unknown>,
 ) => {
-  validateFields(payload, ["reviewId"]);
-
   const updateData = {
     ...(payload.rating && { rating: payload.rating }),
     ...(payload.review && { review: payload.review }),
@@ -76,8 +79,6 @@ const deleteReview = async (
   userData: UserData,
   payload: { reviewId?: string },
 ) => {
-  validateFields(payload, ["reviewId"]);
-
   // Users delete only their own review; admins can delete any
   const filter = isAdmin(userData.role)
     ? { _id: payload.reviewId }

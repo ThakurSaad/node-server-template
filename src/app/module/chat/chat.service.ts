@@ -1,7 +1,6 @@
 import { status } from "../../../util/httpStatus";
 import Chat from "./Chat";
 import ApiError from "../../../error/ApiError";
-import validateFields from "../../../util/validateFields";
 import postNotification from "../../../util/postNotification";
 import User from "../user/User";
 import mongoose from "mongoose";
@@ -14,8 +13,6 @@ const postChat = async (
 ) => {
   const userId = String(userData.userId);
   const receiverId = String(payload.receiverId);
-
-  validateFields(payload, ["receiverId"]);
 
   const [user, receiver, existingChat] = await Promise.all([
     User.findById(userId).lean(),
@@ -61,8 +58,6 @@ const getChatMessages = async (
    * Paginate ONLY the messages array while keeping the existing response format.
    * Accepts optional `page` & `limit` query params (default 1 & 10).
    */
-  validateFields(query, ["chatId"]);
-
   const page = Number(query.page) > 0 ? Number(query.page) : 1;
   const limit = Number(query.limit) > 0 ? Number(query.limit) : 10;
   const skip = (page - 1) * limit;
@@ -168,8 +163,6 @@ const updateMessageAsSeen = async (
    * Meaning update unread messages where the logged-in user is the receiver
    */
   const userId = userData.userId; // logged in user who's viewing the chat
-
-  validateFields(payload, ["chatId"]);
 
   const chat = await Chat.findOne({
     _id: payload.chatId,

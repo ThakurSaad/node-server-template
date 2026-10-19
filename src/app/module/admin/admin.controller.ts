@@ -29,7 +29,10 @@ const getProfile = catchAsync(async (req: Request, res: Response) => {
 });
 
 const deleteMyAccount = catchAsync(async (req: Request, res: Response) => {
-  await AdminService.deleteMyAccount(req.body);
+  if (!req.user) {
+    throw new ApiError(status.UNAUTHORIZED, "Unauthorized");
+  }
+  await AdminService.deleteMyAccount(req.user, req.body);
   sendResponse(res, {
     statusCode: 200,
     success: true,

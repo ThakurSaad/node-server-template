@@ -4,7 +4,6 @@ import Auth from "../auth/Auth";
 import Admin from "./Admin";
 import unlinkFile from "../../../util/unlinkFile";
 import deleteFalsyField from "../../../util/deleteFalsyField";
-import validateFields from "../../../util/validateFields";
 import { EnumUserRole } from "../../../util/enum";
 import { Request } from "express";
 import { AuthUserPayload } from "../../../types/auth.types";
@@ -15,8 +14,6 @@ const createAdmin = async (payload: {
   password: string;
 }) => {
   const { name, email, password } = payload;
-
-  validateFields(payload, ["name", "email", "password"]);
 
   const existing = await Auth.findOne({ email });
   if (existing)
@@ -106,35 +103,33 @@ const getProfile = async (userData: AuthUserPayload) => {
   return result;
 };
 
-const deleteMyAccount = async (payload: {
-  email: string;
-  password: string;
-}) => {
-  const { email, password } = payload;
-
+const deleteMyAccount = async (
+  userData: AuthUserPayload,
+  payload: { password: string },
+) => {
   const [auth, admin] = await Promise.all([
-    Auth.findOne({ email }).select("+password").lean(),
-    Admin.findOne({ email }).lean(),
+    Auth.findById(userData.authId).select("+password").lean(),
+    Admin.findById(userData.userId).lean(),
   ]);
 
   if (!auth || !admin) {
     throw new ApiError(status.NOT_FOUND, "Admin does not exist");
   }
   if (
-    auth.password &&
-    !(await Auth.isPasswordMatched(password, auth.password))
+    !auth.password ||
+    !(await Auth.isPasswordMatched(payload.password, auth.password))
   ) {
     throw new ApiError(status.FORBIDDEN, "Password is incorrect");
-  }
-
-  if (admin.profile_image) {
-    await unlinkFile(admin.profile_image);
   }
 
   await Promise.all([
     Auth.deleteOne({ _id: auth._id }),
     Admin.deleteOne({ _id: admin._id }),
   ]);
+
+  if (admin.profile_image) {
+    await unlinkFile(admin.profile_image);
+  }
 };
 
 const AdminService = {

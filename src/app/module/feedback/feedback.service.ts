@@ -24,8 +24,6 @@ const postFeedback = async (
   userData: UserData | null,
   payload: FeedbackPayload,
 ) => {
-  validateFields(payload, ["feedback"]);
-
   let user: { name: string; email: string } | null = null;
 
   if (!userData) {
@@ -70,8 +68,6 @@ const getFeedback = async (
   userData: UserData,
   query: { feedbackId?: string },
 ) => {
-  validateFields(query, ["feedbackId"]);
-
   // Users reach only their own feedback; admins can read any
   const filter = isAdmin(userData.role)
     ? { _id: query.feedbackId }
@@ -118,8 +114,6 @@ const updateFeedbackWithReply = async (
   userData: UserData,
   payload: FeedbackPayload,
 ) => {
-  validateFields(payload, ["feedbackId", "reply"]);
-
   const feedback = await Feedback.findByIdAndUpdate(
     payload.feedbackId,
     { reply: payload.reply },
@@ -140,8 +134,6 @@ const updateFeedbackWithReply = async (
 };
 
 const deleteFeedback = async (userData: UserData, payload: FeedbackPayload) => {
-  validateFields(payload, ["feedbackId"]);
-
   // Users delete only their own feedback; admins can delete any
   const filter = isAdmin(userData.role)
     ? { _id: payload.feedbackId }
