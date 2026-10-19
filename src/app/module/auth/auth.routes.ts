@@ -18,6 +18,10 @@ const refreshLimiter = createLimiter({ windowMs: 15 * 60 * 1000, limit: 60 });
 router
   .post(
     "/register",
+    // Shares the OTP-send budget with resend/forgot-password: together they
+    // allow 3 OTP emails per IP per 15 minutes. Counts failed requests too
+    // (e.g. re-registering an inactive account still sends an email).
+    otpSendLimiter,
     validateRequest(AuthValidation.register),
     AuthController.registrationAccount,
   )

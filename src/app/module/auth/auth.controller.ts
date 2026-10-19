@@ -18,14 +18,13 @@ const refreshCookieOptions = (refreshToken: string): CookieOptions => ({
 });
 
 const registrationAccount = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthService.registrationAccount(req.body);
-
-  const isSuccess =
-    result.message === "Account created successfully. Please check your email";
+  const { created, ...result } = await AuthService.registrationAccount(
+    req.body,
+  );
 
   sendResponse(res, {
-    statusCode: isSuccess ? 200 : 400,
-    success: isSuccess,
+    statusCode: created ? 200 : 400,
+    success: created,
     message: result.message || "Something went wrong",
     data: result,
   });

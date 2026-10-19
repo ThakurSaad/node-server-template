@@ -110,6 +110,7 @@ const registrationAccount = async (payload: {
     }
 
     return {
+      created: false,
       isActive: user.isActive,
       message,
     };
@@ -128,6 +129,7 @@ const registrationAccount = async (payload: {
   await EmailHelpers.sendActivationEmail(email, data);
 
   return {
+    created: true,
     isActive: false,
     message: "Account created successfully. Please check your email",
   };
@@ -257,7 +259,7 @@ const loginAccount = async (payload: { email: string; password: string }) => {
     throw new ApiError(status.FORBIDDEN, "You are blocked. Contact support");
 
   if (
-    auth.password &&
+    !auth.password ||
     !(await Auth.isPasswordMatched(password, auth.password))
   ) {
     throw new ApiError(status.BAD_REQUEST, "Password is incorrect");
@@ -475,7 +477,7 @@ const changePassword = async (
   if (!isUserExist)
     throw new ApiError(status.NOT_FOUND, "Account does not exist!");
   if (
-    isUserExist.password &&
+    !isUserExist.password ||
     !(await Auth.isPasswordMatched(oldPassword, isUserExist.password))
   ) {
     throw new ApiError(status.BAD_REQUEST, "Old password is incorrect");

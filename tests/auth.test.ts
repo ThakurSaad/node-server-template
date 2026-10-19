@@ -401,3 +401,17 @@ describe("refresh cookie", () => {
     expect(refreshed.body.data.accessToken).toBeTruthy();
   });
 });
+
+describe("register rate limit", () => {
+  it("allows 3 OTP emails per IP per 15 minutes", async () => {
+    const ip = "203.0.113.10";
+
+    for (let i = 0; i < 3; i++) {
+      const res = await client(ip).post("/auth/register").send({});
+      expect(res.status).toBe(400);
+    }
+
+    const fourth = await client(ip).post("/auth/register").send({});
+    expect(fourth.status).toBe(429);
+  });
+});
